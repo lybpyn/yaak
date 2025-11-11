@@ -8,6 +8,7 @@ import { Icon } from '../components/core/Icon';
 import { createRequestAndNavigate } from '../lib/createRequestAndNavigate';
 import { generateId } from '../lib/generateId';
 import { BODY_TYPE_GRAPHQL } from '../lib/model_util';
+import { navigateToWorkflow } from '../lib/navigateToWorkflow';
 import { activeRequestAtom } from './useActiveRequest';
 import { activeWorkspaceIdAtom } from './useActiveWorkspace';
 
@@ -76,6 +77,12 @@ export function getCreateDropdownItems({
       leftSlot: hideIcons ? undefined : <Icon icon="plus" />,
       onSelect: () =>
         createRequestAndNavigate({ model: 'websocket_request', workspaceId, folderId }),
+    },
+    { type: 'separator' },
+    {
+      label: 'Workflow',
+      leftSlot: hideIcons ? undefined : <Icon icon="plus" />,
+      onSelect: () => navigateToWorkflow({ workspaceId }),
     },
     ...((hideFolder
       ? []

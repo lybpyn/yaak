@@ -2154,6 +2154,10 @@ define_any_model! {
     WebsocketConnection,
     WebsocketEvent,
     WebsocketRequest,
+    Workflow,
+    WorkflowStep,
+    WorkflowExecution,
+    WorkflowStepExecution,
     Workspace,
     WorkspaceMeta,
 }
@@ -2187,6 +2191,10 @@ impl<'de> Deserialize<'de> for AnyModel {
             }
             Some(m) if m == "websocket_event" => AnyModel::WebsocketEvent(fv(value).unwrap()),
             Some(m) if m == "websocket_request" => AnyModel::WebsocketRequest(fv(value).unwrap()),
+            Some(m) if m == "workflow" => AnyModel::Workflow(fv(value).unwrap()),
+            Some(m) if m == "workflow_step" => AnyModel::WorkflowStep(fv(value).unwrap()),
+            Some(m) if m == "workflow_execution" => AnyModel::WorkflowExecution(fv(value).unwrap()),
+            Some(m) if m == "workflow_step_execution" => AnyModel::WorkflowStepExecution(fv(value).unwrap()),
             Some(m) if m == "workspace" => AnyModel::Workspace(fv(value).unwrap()),
             Some(m) if m == "workspace_meta" => AnyModel::WorkspaceMeta(fv(value).unwrap()),
             Some(m) => {
@@ -2221,6 +2229,8 @@ impl AnyModel {
             AnyModel::GrpcRequest(v) => compute_name(&v.name, &v.url, "gRPC Request"),
             AnyModel::HttpRequest(v) => compute_name(&v.name, &v.url, "HTTP Request"),
             AnyModel::WebsocketRequest(v) => compute_name(&v.name, &v.url, "WebSocket Request"),
+            AnyModel::Workflow(v) => v.name,
+            AnyModel::WorkflowStep(v) => v.name,
             AnyModel::Workspace(v) => v.name,
             _ => "No Name".to_string(),
         }
@@ -2258,5 +2268,430 @@ fn upsert_date(update_source: &UpdateSource, dt: NaiveDateTime) -> SimpleExpr {
         }
         // Other sources will always update to the latest time
         _ => Utc::now().naive_utc().into(),
+    }
+}
+
+// ============================================================================
+// Workflow Models - Test Workflows Feature
+// ============================================================================
+
+// Workflow: Container for test sequences
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflows")]
+pub struct Workflow {
+    #[ts(type = "\"workflow\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+    pub workspace_id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub environment_id: Option<String>,
+    pub sort_priority: f64,
+}
+
+impl_model!(Workflow, Workflow);
+
+impl UpsertModelInfo for Workflow {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("wf")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowIden::SortPriority, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkspaceId, self.workspace_id.into()),
+            (Name, self.name.trim().into()),
+            (Description, self.description.into()),
+            (EnvironmentId, self.environment_id.into()),
+            (SortPriority, self.sort_priority.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowIden::*;
+        vec![UpdatedAt, DeletedAt, Name, Description, EnvironmentId, SortPriority]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workspace_id: row.get("workspace_id")?,
+            name: row.get("name")?,
+            description: row.get("description")?,
+            environment_id: row.get("environment_id")?,
+            sort_priority: row.get("sort_priority")?,
+        })
+    }
+}
+
+// WorkflowStep: Individual request in execution order
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_steps")]
+pub struct WorkflowStep {
+    #[ts(type = "\"workflow_step\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+    pub workflow_id: String,
+    pub request_id: String,
+    pub request_model: String,  // "http_request" | "grpc_request"
+    pub name: String,
+    pub enabled: bool,
+    pub sort_priority: f64,
+}
+
+impl_model!(WorkflowStep, WorkflowStep);
+
+impl UpsertModelInfo for WorkflowStep {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowStepIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowStepIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("ws")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowStepIden::SortPriority, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowStepIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkflowId, self.workflow_id.into()),
+            (RequestId, self.request_id.into()),
+            (RequestModel, self.request_model.into()),
+            (Name, self.name.trim().into()),
+            (Enabled, self.enabled.into()),
+            (SortPriority, self.sort_priority.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowStepIden::*;
+        vec![UpdatedAt, DeletedAt, Name, Enabled, SortPriority]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workflow_id: row.get("workflow_id")?,
+            request_id: row.get("request_id")?,
+            request_model: row.get("request_model")?,
+            name: row.get("name")?,
+            enabled: row.get("enabled")?,
+            sort_priority: row.get("sort_priority")?,
+        })
+    }
+}
+
+// WorkflowExecution: Results of workflow run
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_executions")]
+pub struct WorkflowExecution {
+    #[ts(type = "\"workflow_execution\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+    pub workflow_id: String,
+    pub workspace_id: String,
+    pub environment_id: Option<String>,
+    pub elapsed: Option<i32>,
+    pub state: WorkflowExecutionState,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "gen_models.ts")]
+pub enum WorkflowExecutionState {
+    Initialized,
+    Running,
+    Completed,
+    Failed,
+    Cancelled,
+}
+
+impl FromStr for WorkflowExecutionState {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "initialized" => Ok(Self::Initialized),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "cancelled" => Ok(Self::Cancelled),
+            _ => Err(crate::error::Error::Message(format!("Invalid WorkflowExecutionState: {}", s))),
+        }
+    }
+}
+
+impl Display for WorkflowExecutionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            WorkflowExecutionState::Initialized => "initialized",
+            WorkflowExecutionState::Running => "running",
+            WorkflowExecutionState::Completed => "completed",
+            WorkflowExecutionState::Failed => "failed",
+            WorkflowExecutionState::Cancelled => "cancelled",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl_model!(WorkflowExecution, WorkflowExecution);
+
+impl UpsertModelInfo for WorkflowExecution {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowExecutionIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowExecutionIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("we")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowExecutionIden::CreatedAt, Desc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowExecutionIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkflowId, self.workflow_id.into()),
+            (WorkspaceId, self.workspace_id.into()),
+            (EnvironmentId, self.environment_id.into()),
+            (Elapsed, self.elapsed.into()),
+            (State, self.state.to_string().into()),
+            (Error, self.error.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowExecutionIden::*;
+        vec![UpdatedAt, DeletedAt, Elapsed, State, Error]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        let state_str: String = row.get("state")?;
+        let state = WorkflowExecutionState::from_str(&state_str)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+        
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workflow_id: row.get("workflow_id")?,
+            workspace_id: row.get("workspace_id")?,
+            environment_id: row.get("environment_id")?,
+            elapsed: row.get("elapsed")?,
+            state,
+            error: row.get("error")?,
+        })
+    }
+}
+
+// WorkflowStepExecution: Results of individual step execution
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_step_executions")]
+pub struct WorkflowStepExecution {
+    #[ts(type = "\"workflow_step_execution\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+    pub workflow_execution_id: String,
+    pub workflow_step_id: String,
+    pub request_id: String,
+    pub response_id: Option<String>,
+    pub response_model: Option<String>,  // "http_response" | "grpc_connection"
+    pub elapsed: Option<i32>,
+    pub state: WorkflowStepExecutionState,
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "gen_models.ts")]
+pub enum WorkflowStepExecutionState {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Skipped,
+}
+
+impl FromStr for WorkflowStepExecutionState {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "pending" => Ok(Self::Pending),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "skipped" => Ok(Self::Skipped),
+            _ => Err(crate::error::Error::Message(format!("Invalid WorkflowStepExecutionState: {}", s))),
+        }
+    }
+}
+
+impl Display for WorkflowStepExecutionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            WorkflowStepExecutionState::Pending => "pending",
+            WorkflowStepExecutionState::Running => "running",
+            WorkflowStepExecutionState::Completed => "completed",
+            WorkflowStepExecutionState::Failed => "failed",
+            WorkflowStepExecutionState::Skipped => "skipped",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl_model!(WorkflowStepExecution, WorkflowStepExecution);
+
+impl UpsertModelInfo for WorkflowStepExecution {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowStepExecutionIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowStepExecutionIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("se")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowStepExecutionIden::CreatedAt, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowStepExecutionIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkflowExecutionId, self.workflow_execution_id.into()),
+            (WorkflowStepId, self.workflow_step_id.into()),
+            (RequestId, self.request_id.into()),
+            (ResponseId, self.response_id.into()),
+            (ResponseModel, self.response_model.into()),
+            (Elapsed, self.elapsed.into()),
+            (State, self.state.to_string().into()),
+            (Error, self.error.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowStepExecutionIden::*;
+        vec![UpdatedAt, DeletedAt, ResponseId, ResponseModel, Elapsed, State, Error]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        let state_str: String = row.get("state")?;
+        let state = WorkflowStepExecutionState::from_str(&state_str)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+        
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workflow_execution_id: row.get("workflow_execution_id")?,
+            workflow_step_id: row.get("workflow_step_id")?,
+            request_id: row.get("request_id")?,
+            response_id: row.get("response_id")?,
+            response_model: row.get("response_model")?,
+            elapsed: row.get("elapsed")?,
+            state,
+            error: row.get("error")?,
+        })
     }
 }

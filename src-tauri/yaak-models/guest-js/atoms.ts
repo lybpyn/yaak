@@ -25,6 +25,10 @@ export const websocketConnectionsAtom = createOrderedModelAtom(
   'createdAt',
   'desc',
 );
+export const workflowsAtom = createOrderedModelAtom('workflow', 'sortPriority', 'asc');
+export const workflowStepsAtom = createOrderedModelAtom('workflow_step', 'sortPriority', 'asc');
+export const workflowExecutionsAtom = createOrderedModelAtom('workflow_execution', 'createdAt', 'desc');
+export const workflowStepExecutionsAtom = createOrderedModelAtom('workflow_step_execution', 'createdAt', 'asc');
 export const workspaceMetasAtom = createModelAtom('workspace_meta');
 export const workspacesAtom = createOrderedModelAtom('workspace', 'name', 'asc');
 

@@ -18,6 +18,10 @@ export function newStoreData(): ModelStoreData {
     websocket_connection: {},
     websocket_event: {},
     websocket_request: {},
+    workflow: {},
+    workflow_execution: {},
+    workflow_step: {},
+    workflow_step_execution: {},
     workspace: {},
     workspace_meta: {},
   };

@@ -17,6 +17,9 @@ mod sync_states;
 mod websocket_connections;
 mod websocket_events;
 mod websocket_requests;
+pub mod workflow_executions;
+pub mod workflow_steps;
+pub mod workflows;
 mod workspace_metas;
 mod workspaces;
 

@@ -68,6 +68,7 @@ mod updates;
 mod uri_scheme;
 mod window;
 mod window_menu;
+mod workflow_execution;
 
 #[derive(serde::Serialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -1457,6 +1458,12 @@ pub fn run() {
             crate::commands::cmd_get_themes,
             crate::commands::cmd_secure_template,
             crate::commands::cmd_show_workspace_key,
+            // Workflow commands
+            crate::commands::cmd_execute_workflow,
+            crate::commands::cmd_cancel_workflow_execution,
+            crate::commands::cmd_get_workflow_with_steps,
+            crate::commands::cmd_get_workflow_execution_results,
+            crate::commands::cmd_list_workflow_executions,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

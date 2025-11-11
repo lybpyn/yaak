@@ -12,6 +12,19 @@ pub enum Error {
 
     #[error("Render Error: Max recursion depth exceeded")]
     RenderStackExceededError,
+
+    // Workflow template errors
+    #[error("Workflow Error: Step {0} has not been executed yet")]
+    WorkflowStepNotExecuted(usize),
+
+    #[error("Workflow Error: Field '{0}' not found in step {1} response")]
+    WorkflowFieldNotFound(String, usize),
+
+    #[error("Workflow Error: Header '{0}' not found in step {1} response")]
+    WorkflowHeaderNotFound(String, usize),
+
+    #[error("Workflow Error: Invalid syntax - {0}")]
+    WorkflowInvalidSyntax(String),
 }
 
 impl Serialize for Error {
