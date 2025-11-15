@@ -9,8 +9,8 @@ use rusqlite::Row;
 use sea_query::Order::Desc;
 use sea_query::{IntoColumnRef, IntoIden, IntoTableRef, Order, SimpleExpr, enum_def};
 use serde::{Deserialize, Deserializer, Serialize};
-use serde_json::Value;
-use std::collections::BTreeMap;
+use serde_json::{json, Value};
+use std::collections::{BTreeMap, HashMap};
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 use ts_rs::TS;
@@ -2158,6 +2158,10 @@ define_any_model! {
     WorkflowStep,
     WorkflowExecution,
     WorkflowStepExecution,
+    WorkflowNode,
+    WorkflowEdge,
+    WorkflowViewport,
+    WorkflowNodeExecution,
     Workspace,
     WorkspaceMeta,
 }
@@ -2195,6 +2199,10 @@ impl<'de> Deserialize<'de> for AnyModel {
             Some(m) if m == "workflow_step" => AnyModel::WorkflowStep(fv(value).unwrap()),
             Some(m) if m == "workflow_execution" => AnyModel::WorkflowExecution(fv(value).unwrap()),
             Some(m) if m == "workflow_step_execution" => AnyModel::WorkflowStepExecution(fv(value).unwrap()),
+            Some(m) if m == "workflow_node" => AnyModel::WorkflowNode(fv(value).unwrap()),
+            Some(m) if m == "workflow_edge" => AnyModel::WorkflowEdge(fv(value).unwrap()),
+            Some(m) if m == "workflow_viewport" => AnyModel::WorkflowViewport(fv(value).unwrap()),
+            Some(m) if m == "workflow_node_execution" => AnyModel::WorkflowNodeExecution(fv(value).unwrap()),
             Some(m) if m == "workspace" => AnyModel::Workspace(fv(value).unwrap()),
             Some(m) if m == "workspace_meta" => AnyModel::WorkspaceMeta(fv(value).unwrap()),
             Some(m) => {
@@ -2231,6 +2239,7 @@ impl AnyModel {
             AnyModel::WebsocketRequest(v) => compute_name(&v.name, &v.url, "WebSocket Request"),
             AnyModel::Workflow(v) => v.name,
             AnyModel::WorkflowStep(v) => v.name,
+            AnyModel::WorkflowNode(v) => v.name,
             AnyModel::Workspace(v) => v.name,
             _ => "No Name".to_string(),
         }
@@ -2276,8 +2285,8 @@ fn upsert_date(update_source: &UpdateSource, dt: NaiveDateTime) -> SimpleExpr {
 // ============================================================================
 
 // Workflow: Container for test sequences
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "workflows")]
 pub struct Workflow {
@@ -2293,8 +2302,6 @@ pub struct Workflow {
     pub environment_id: Option<String>,
     pub sort_priority: f64,
 }
-
-impl_model!(Workflow, Workflow);
 
 impl UpsertModelInfo for Workflow {
     fn table_name() -> impl IntoTableRef + IntoIden {
@@ -2356,8 +2363,8 @@ impl UpsertModelInfo for Workflow {
 }
 
 // WorkflowStep: Individual request in execution order
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "workflow_steps")]
 pub struct WorkflowStep {
@@ -2374,8 +2381,6 @@ pub struct WorkflowStep {
     pub enabled: bool,
     pub sort_priority: f64,
 }
-
-impl_model!(WorkflowStep, WorkflowStep);
 
 impl UpsertModelInfo for WorkflowStep {
     fn table_name() -> impl IntoTableRef + IntoIden {
@@ -2439,8 +2444,8 @@ impl UpsertModelInfo for WorkflowStep {
 }
 
 // WorkflowExecution: Results of workflow run
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "workflow_executions")]
 pub struct WorkflowExecution {
@@ -2458,10 +2463,11 @@ pub struct WorkflowExecution {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "gen_models.ts")]
 pub enum WorkflowExecutionState {
+    #[default]
     Initialized,
     Running,
     Completed,
@@ -2479,7 +2485,7 @@ impl FromStr for WorkflowExecutionState {
             "completed" => Ok(Self::Completed),
             "failed" => Ok(Self::Failed),
             "cancelled" => Ok(Self::Cancelled),
-            _ => Err(crate::error::Error::Message(format!("Invalid WorkflowExecutionState: {}", s))),
+            _ => Err(crate::error::Error::GenericError(format!("Invalid WorkflowExecutionState: {}", s))),
         }
     }
 }
@@ -2496,8 +2502,6 @@ impl Display for WorkflowExecutionState {
         write!(f, "{}", str)
     }
 }
-
-impl_model!(WorkflowExecution, WorkflowExecution);
 
 impl UpsertModelInfo for WorkflowExecution {
     fn table_name() -> impl IntoTableRef + IntoIden {
@@ -2565,8 +2569,8 @@ impl UpsertModelInfo for WorkflowExecution {
 }
 
 // WorkflowStepExecution: Results of individual step execution
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
 #[ts(export, export_to = "gen_models.ts")]
 #[enum_def(table_name = "workflow_step_executions")]
 pub struct WorkflowStepExecution {
@@ -2586,10 +2590,11 @@ pub struct WorkflowStepExecution {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Default)]
 #[serde(rename_all = "lowercase")]
 #[ts(export, export_to = "gen_models.ts")]
 pub enum WorkflowStepExecutionState {
+    #[default]
     Pending,
     Running,
     Completed,
@@ -2607,7 +2612,7 @@ impl FromStr for WorkflowStepExecutionState {
             "completed" => Ok(Self::Completed),
             "failed" => Ok(Self::Failed),
             "skipped" => Ok(Self::Skipped),
-            _ => Err(crate::error::Error::Message(format!("Invalid WorkflowStepExecutionState: {}", s))),
+            _ => Err(crate::error::Error::GenericError(format!("Invalid WorkflowStepExecutionState: {}", s))),
         }
     }
 }
@@ -2624,8 +2629,6 @@ impl Display for WorkflowStepExecutionState {
         write!(f, "{}", str)
     }
 }
-
-impl_model!(WorkflowStepExecution, WorkflowStepExecution);
 
 impl UpsertModelInfo for WorkflowStepExecution {
     fn table_name() -> impl IntoTableRef + IntoIden {
@@ -2694,4 +2697,893 @@ impl UpsertModelInfo for WorkflowStepExecution {
             error: row.get("error")?,
         })
     }
+}
+
+// ============================================================================
+// Visual Workflow Canvas Models
+// ============================================================================
+
+// WorkflowNode: Individual node in visual workflow canvas
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_nodes")]
+pub struct WorkflowNode {
+    #[ts(type = "\"workflow_node\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+
+    pub workflow_id: String,
+    pub node_type: NodeType,
+    pub node_subtype: String,
+
+    pub position_x: f64,
+    pub position_y: f64,
+    pub width: f64,
+    pub height: f64,
+
+    pub name: String,
+    pub description: Option<String>,
+    pub config: Value,
+    pub enabled: bool,
+
+    pub legacy_step_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "gen_models.ts")]
+pub enum NodeType {
+    Trigger,
+    Action,
+    Logic,
+}
+
+impl Default for NodeType {
+    fn default() -> Self {
+        Self::Action
+    }
+}
+
+impl FromStr for NodeType {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "trigger" => Ok(Self::Trigger),
+            "action" => Ok(Self::Action),
+            "logic" => Ok(Self::Logic),
+            _ => Err(crate::error::Error::GenericError(format!("Invalid NodeType: {}", s))),
+        }
+    }
+}
+
+impl Display for NodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            NodeType::Trigger => "trigger",
+            NodeType::Action => "action",
+            NodeType::Logic => "logic",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl UpsertModelInfo for WorkflowNode {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowNodeIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowNodeIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("wn")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowNodeIden::CreatedAt, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowNodeIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkflowId, self.workflow_id.into()),
+            (NodeType, self.node_type.to_string().into()),
+            (NodeSubtype, self.node_subtype.into()),
+            (PositionX, self.position_x.into()),
+            (PositionY, self.position_y.into()),
+            (Width, self.width.into()),
+            (Height, self.height.into()),
+            (Name, self.name.trim().into()),
+            (Description, self.description.into()),
+            (Config, self.config.to_string().into()),
+            (Enabled, self.enabled.into()),
+            (LegacyStepId, self.legacy_step_id.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowNodeIden::*;
+        vec![UpdatedAt, DeletedAt, PositionX, PositionY, Width, Height, Name, Description, Config, Enabled]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        let node_type_str: String = row.get("node_type")?;
+        let node_type = NodeType::from_str(&node_type_str)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+
+        let config_str: String = row.get("config")?;
+        let config = serde_json::from_str(&config_str)
+            .unwrap_or(Value::Object(serde_json::Map::new()));
+
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workflow_id: row.get("workflow_id")?,
+            node_type,
+            node_subtype: row.get("node_subtype")?,
+            position_x: row.get("position_x")?,
+            position_y: row.get("position_y")?,
+            width: row.get("width")?,
+            height: row.get("height")?,
+            name: row.get("name")?,
+            description: row.get("description")?,
+            config,
+            enabled: row.get("enabled")?,
+            legacy_step_id: row.get("legacy_step_id")?,
+        })
+    }
+}
+
+// WorkflowEdge: Connection between workflow nodes
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_edges")]
+pub struct WorkflowEdge {
+    #[ts(type = "\"workflow_edge\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+
+    pub workflow_id: String,
+    pub source_node_id: String,
+    pub target_node_id: String,
+    pub source_anchor: String,
+    pub target_anchor: String,
+    pub edge_type: EdgeType,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "gen_models.ts")]
+pub enum EdgeType {
+    Sequential,
+    Conditional,
+    Parallel,
+    Loop,
+}
+
+impl Default for EdgeType {
+    fn default() -> Self {
+        Self::Sequential
+    }
+}
+
+impl FromStr for EdgeType {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "sequential" => Ok(Self::Sequential),
+            "conditional" => Ok(Self::Conditional),
+            "parallel" => Ok(Self::Parallel),
+            "loop" => Ok(Self::Loop),
+            _ => Err(crate::error::Error::GenericError(format!("Invalid EdgeType: {}", s))),
+        }
+    }
+}
+
+impl Display for EdgeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            EdgeType::Sequential => "sequential",
+            EdgeType::Conditional => "conditional",
+            EdgeType::Parallel => "parallel",
+            EdgeType::Loop => "loop",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl UpsertModelInfo for WorkflowEdge {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowEdgeIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowEdgeIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("we")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowEdgeIden::CreatedAt, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowEdgeIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkflowId, self.workflow_id.into()),
+            (SourceNodeId, self.source_node_id.into()),
+            (TargetNodeId, self.target_node_id.into()),
+            (SourceAnchor, self.source_anchor.into()),
+            (TargetAnchor, self.target_anchor.into()),
+            (EdgeType, self.edge_type.to_string().into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowEdgeIden::*;
+        vec![UpdatedAt, DeletedAt]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        let edge_type_str: String = row.get("edge_type")?;
+        let edge_type = EdgeType::from_str(&edge_type_str)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workflow_id: row.get("workflow_id")?,
+            source_node_id: row.get("source_node_id")?,
+            target_node_id: row.get("target_node_id")?,
+            source_anchor: row.get("source_anchor")?,
+            target_anchor: row.get("target_anchor")?,
+            edge_type,
+        })
+    }
+}
+
+// WorkflowViewport: Canvas viewport state (pan/zoom)
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_viewport")]
+pub struct WorkflowViewport {
+    #[ts(type = "\"workflow_viewport\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+
+    pub workflow_id: String,
+    pub pan_x: f64,
+    pub pan_y: f64,
+    pub zoom: f64,
+}
+
+impl UpsertModelInfo for WorkflowViewport {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowViewportIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowViewportIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("wv")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowViewportIden::CreatedAt, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowViewportIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (WorkflowId, self.workflow_id.into()),
+            (PanX, self.pan_x.into()),
+            (PanY, self.pan_y.into()),
+            (Zoom, self.zoom.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowViewportIden::*;
+        vec![UpdatedAt, PanX, PanY, Zoom]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            workflow_id: row.get("workflow_id")?,
+            pan_x: row.get("pan_x")?,
+            pan_y: row.get("pan_y")?,
+            zoom: row.get("zoom")?,
+        })
+    }
+}
+
+// WorkflowNodeExecution: Execution record for a single node
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[serde(default, rename_all = "camelCase")]
+#[ts(export, export_to = "gen_models.ts")]
+#[enum_def(table_name = "workflow_node_executions")]
+pub struct WorkflowNodeExecution {
+    #[ts(type = "\"workflow_node_execution\"")]
+    pub model: String,
+    pub id: String,
+    pub created_at: NaiveDateTime,
+    pub updated_at: NaiveDateTime,
+    pub deleted_at: Option<NaiveDateTime>,
+
+    pub workflow_execution_id: String,
+    pub workflow_node_id: String,
+
+    pub elapsed: Option<i32>,
+    pub state: NodeExecutionState,
+    pub error: Option<String>,
+    pub result: Option<Value>,
+
+    pub loop_iteration: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+#[ts(export, export_to = "gen_models.ts")]
+pub enum NodeExecutionState {
+    Pending,
+    Running,
+    Completed,
+    Failed,
+    Skipped,
+}
+
+impl Default for NodeExecutionState {
+    fn default() -> Self {
+        Self::Pending
+    }
+}
+
+impl FromStr for NodeExecutionState {
+    type Err = crate::error::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "pending" => Ok(Self::Pending),
+            "running" => Ok(Self::Running),
+            "completed" => Ok(Self::Completed),
+            "failed" => Ok(Self::Failed),
+            "skipped" => Ok(Self::Skipped),
+            _ => Err(crate::error::Error::GenericError(format!("Invalid NodeExecutionState: {}", s))),
+        }
+    }
+}
+
+impl Display for NodeExecutionState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let str = match self {
+            NodeExecutionState::Pending => "pending",
+            NodeExecutionState::Running => "running",
+            NodeExecutionState::Completed => "completed",
+            NodeExecutionState::Failed => "failed",
+            NodeExecutionState::Skipped => "skipped",
+        };
+        write!(f, "{}", str)
+    }
+}
+
+impl UpsertModelInfo for WorkflowNodeExecution {
+    fn table_name() -> impl IntoTableRef + IntoIden {
+        WorkflowNodeExecutionIden::Table
+    }
+
+    fn id_column() -> impl IntoIden + Eq + Clone {
+        WorkflowNodeExecutionIden::Id
+    }
+
+    fn generate_id() -> String {
+        generate_prefixed_id("wne")
+    }
+
+    fn order_by() -> (impl IntoColumnRef, Order) {
+        (WorkflowNodeExecutionIden::CreatedAt, Order::Asc)
+    }
+
+    fn get_id(&self) -> String {
+        self.id.clone()
+    }
+
+    fn insert_values(
+        self,
+        source: &UpdateSource,
+    ) -> Result<Vec<(impl IntoIden + Eq, impl Into<SimpleExpr>)>> {
+        use WorkflowNodeExecutionIden::*;
+        Ok(vec![
+            (CreatedAt, upsert_date(source, self.created_at)),
+            (UpdatedAt, upsert_date(source, self.updated_at)),
+            (DeletedAt, self.deleted_at.map(|d| d.and_utc().timestamp()).into()),
+            (WorkflowExecutionId, self.workflow_execution_id.into()),
+            (WorkflowNodeId, self.workflow_node_id.into()),
+            (Elapsed, self.elapsed.into()),
+            (State, self.state.to_string().into()),
+            (Error, self.error.into()),
+            (Result, self.result.map(|r| r.to_string()).into()),
+            (LoopIteration, self.loop_iteration.into()),
+        ])
+    }
+
+    fn update_columns() -> Vec<impl IntoIden> {
+        use WorkflowNodeExecutionIden::*;
+        vec![UpdatedAt, DeletedAt, Elapsed, State, Error, Result]
+    }
+
+    fn from_row(row: &Row) -> rusqlite::Result<Self> {
+        let state_str: String = row.get("state")?;
+        let state = NodeExecutionState::from_str(&state_str)
+            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(e)))?;
+
+        let result: Option<String> = row.get("result")?;
+        let result_value = result.and_then(|r| serde_json::from_str(&r).ok());
+
+        Ok(Self {
+            model: row.get("model")?,
+            id: row.get("id")?,
+            created_at: row.get("created_at")?,
+            updated_at: row.get("updated_at")?,
+            deleted_at: row.get("deleted_at")?,
+            workflow_execution_id: row.get("workflow_execution_id")?,
+            workflow_node_id: row.get("workflow_node_id")?,
+            elapsed: row.get("elapsed")?,
+            state,
+            error: row.get("error")?,
+            result: result_value,
+            loop_iteration: row.get("loop_iteration")?,
+        })
+    }
+}
+
+// ============================================================================
+// Validation Result Structures
+// ============================================================================
+
+/// Validation result for workflow graph validation
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "gen_models.ts")]
+pub struct ValidationResult {
+    pub valid: bool,
+    pub errors: Vec<ValidationError>,
+}
+
+/// Individual validation error with context
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "gen_models.ts")]
+pub struct ValidationError {
+    pub node_id: Option<String>,
+    pub field: Option<String>,
+    pub message: String,
+}
+
+impl ValidationResult {
+    pub fn new() -> Self {
+        Self {
+            valid: true,
+            errors: Vec::new(),
+        }
+    }
+
+    pub fn add_error(&mut self, error: ValidationError) {
+        self.valid = false;
+        self.errors.push(error);
+    }
+
+    pub fn is_valid(&self) -> bool {
+        self.valid && self.errors.is_empty()
+    }
+}
+
+impl Default for ValidationResult {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ValidationError {
+    pub fn new(message: String) -> Self {
+        Self {
+            node_id: None,
+            field: None,
+            message,
+        }
+    }
+
+    pub fn with_node(message: String, node_id: String) -> Self {
+        Self {
+            node_id: Some(node_id),
+            field: None,
+            message,
+        }
+    }
+
+    pub fn with_field(message: String, node_id: String, field: String) -> Self {
+        Self {
+            node_id: Some(node_id),
+            field: Some(field),
+            message,
+        }
+    }
+}
+
+// ============================================================================
+// Node Type Definitions (for UI and validation)
+// ============================================================================
+
+/// Node Type Definition for workflow canvas
+/// Defines the schema, UI metadata, and default configuration for each node type
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "gen_models.ts")]
+pub struct NodeTypeDefinition {
+    pub category: NodeType,
+    pub subtype: String,
+    pub name: String,
+    pub description: String,
+    pub icon: String,
+    pub color: String,
+    pub schema: Value,
+    pub default_config: Value,
+}
+
+/// Built-in node type registry with all 11 supported node types
+pub fn get_node_type_definitions() -> Vec<NodeTypeDefinition> {
+    vec![
+        // ============ Triggers (3) ============
+        NodeTypeDefinition {
+            category: NodeType::Trigger,
+            subtype: "manual_trigger".to_string(),
+            name: "Manual Trigger".to_string(),
+            description: "Start workflow manually".to_string(),
+            icon: "⚡".to_string(),
+            color: "#10b981".to_string(),
+            schema: json!({}),
+            default_config: json!({}),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Trigger,
+            subtype: "webhook_trigger".to_string(),
+            name: "Webhook Trigger".to_string(),
+            description: "Trigger on HTTP webhook".to_string(),
+            icon: "🌐".to_string(),
+            color: "#10b981".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["url", "method"],
+                "properties": {
+                    "url": { "type": "string", "format": "uri" },
+                    "method": { "type": "string", "enum": ["GET", "POST", "PUT", "DELETE"] },
+                    "auth_token": { "type": "string" }
+                }
+            }),
+            default_config: json!({
+                "url": "https://webhook.yaak.app/{{uuid()}}",
+                "method": "POST",
+                "auth_token": ""
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Trigger,
+            subtype: "timer_trigger".to_string(),
+            name: "Timer Trigger".to_string(),
+            description: "Execute on schedule".to_string(),
+            icon: "⏰".to_string(),
+            color: "#3b82f6".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["schedule_type"],
+                "properties": {
+                    "schedule_type": { "type": "string", "enum": ["cron", "interval"] },
+                    "cron_expression": { "type": "string" },
+                    "interval_minutes": { "type": "integer", "minimum": 1 }
+                }
+            }),
+            default_config: json!({
+                "schedule_type": "interval",
+                "interval_minutes": 60
+            }),
+        },
+
+        // ============ Actions (5) ============
+        NodeTypeDefinition {
+            category: NodeType::Action,
+            subtype: "http_request".to_string(),
+            name: "HTTP Request".to_string(),
+            description: "Send HTTP API request".to_string(),
+            icon: "🌐".to_string(),
+            color: "#8b5cf6".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["method", "url"],
+                "properties": {
+                    "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] },
+                    "url": { "type": "string" },
+                    "headers": { "type": "array", "items": { "type": "object" } },
+                    "body": { "type": "string" },
+                    "auth_enabled": { "type": "boolean" }
+                }
+            }),
+            default_config: json!({
+                "method": "GET",
+                "url": "",
+                "headers": [],
+                "body": "",
+                "auth_enabled": false
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Action,
+            subtype: "grpc_request".to_string(),
+            name: "gRPC Request".to_string(),
+            description: "Send gRPC request".to_string(),
+            icon: "⚡".to_string(),
+            color: "#8b5cf6".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["url", "service", "method"],
+                "properties": {
+                    "url": { "type": "string" },
+                    "service": { "type": "string" },
+                    "method": { "type": "string" },
+                    "message": { "type": "string" }
+                }
+            }),
+            default_config: json!({
+                "url": "",
+                "service": "",
+                "method": "",
+                "message": "{}"
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Action,
+            subtype: "email".to_string(),
+            name: "Send Email".to_string(),
+            description: "Send email via SMTP".to_string(),
+            icon: "📧".to_string(),
+            color: "#f97316".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["smtp_server", "from", "to", "subject"],
+                "properties": {
+                    "smtp_server": { "type": "string" },
+                    "from": { "type": "string", "format": "email" },
+                    "to": { "type": "array", "items": { "type": "string", "format": "email" } },
+                    "cc": { "type": "array", "items": { "type": "string", "format": "email" } },
+                    "bcc": { "type": "array", "items": { "type": "string", "format": "email" } },
+                    "subject": { "type": "string" },
+                    "body": { "type": "string" }
+                }
+            }),
+            default_config: json!({
+                "smtp_server": "{{env.SMTP_SERVER}}",
+                "from": "{{env.EMAIL_FROM}}",
+                "to": [],
+                "cc": [],
+                "bcc": [],
+                "subject": "",
+                "body": ""
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Action,
+            subtype: "database".to_string(),
+            name: "Database Query".to_string(),
+            description: "Execute SQL query".to_string(),
+            icon: "🗄️".to_string(),
+            color: "#06b6d4".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["connection_string", "query"],
+                "properties": {
+                    "connection_string": { "type": "string" },
+                    "query": { "type": "string" },
+                    "read_only": { "type": "boolean" }
+                }
+            }),
+            default_config: json!({
+                "connection_string": "{{env.DATABASE_URL}}",
+                "query": "SELECT * FROM users LIMIT 10;",
+                "read_only": true
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Action,
+            subtype: "websocket".to_string(),
+            name: "WebSocket".to_string(),
+            description: "Connect to WebSocket".to_string(),
+            icon: "🔌".to_string(),
+            color: "#06b6d4".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["url"],
+                "properties": {
+                    "url": { "type": "string", "format": "uri" },
+                    "messages": { "type": "array", "items": { "type": "string" } },
+                    "timeout_seconds": { "type": "integer", "minimum": 1, "maximum": 300 }
+                }
+            }),
+            default_config: json!({
+                "url": "wss://",
+                "messages": [],
+                "timeout_seconds": 30
+            }),
+        },
+
+        // ============ Logic Control (3) ============
+        NodeTypeDefinition {
+            category: NodeType::Logic,
+            subtype: "conditional".to_string(),
+            name: "Conditional (IF/ELSE)".to_string(),
+            description: "Branch based on condition".to_string(),
+            icon: "❓".to_string(),
+            color: "#f59e0b".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["condition"],
+                "properties": {
+                    "condition": { "type": "string" }
+                }
+            }),
+            default_config: json!({
+                "condition": "{{step[0].response.status}} == 200"
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Logic,
+            subtype: "loop".to_string(),
+            name: "Loop".to_string(),
+            description: "Iterate over items".to_string(),
+            icon: "🔁".to_string(),
+            color: "#ef4444".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["loop_type"],
+                "properties": {
+                    "loop_type": { "type": "string", "enum": ["count", "array"] },
+                    "count": { "type": "integer", "minimum": 1, "maximum": 1000 },
+                    "array_variable": { "type": "string" }
+                }
+            }),
+            default_config: json!({
+                "loop_type": "count",
+                "count": 5
+            }),
+        },
+        NodeTypeDefinition {
+            category: NodeType::Logic,
+            subtype: "parallel".to_string(),
+            name: "Parallel Execution".to_string(),
+            description: "Execute branches concurrently".to_string(),
+            icon: "⚡".to_string(),
+            color: "#06b6d4".to_string(),
+            schema: json!({
+                "type": "object",
+                "required": ["branch_count"],
+                "properties": {
+                    "branch_count": { "type": "integer", "minimum": 2, "maximum": 10 },
+                    "fail_fast": { "type": "boolean" }
+                }
+            }),
+            default_config: json!({
+                "branch_count": 2,
+                "fail_fast": true
+            }),
+        },
+    ]
+}
+
+// ============================================================================
+// Execution Graph Models (internal, not persisted to DB)
+// ============================================================================
+
+#[derive(Debug, Clone)]
+pub struct ExecutionGraph {
+    pub nodes: HashMap<String, WorkflowNode>,
+    pub edges: Vec<WorkflowEdge>,
+    pub start_node_id: String,
+    pub execution_order: Vec<ExecutionStep>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ExecutionStep {
+    Sequential {
+        node_id: String,
+    },
+    Parallel {
+        node_ids: Vec<String>,
+    },
+    Conditional {
+        node_id: String,
+        true_branch: Box<Vec<ExecutionStep>>,
+        false_branch: Box<Vec<ExecutionStep>>,
+    },
+    Loop {
+        node_id: String,
+        body: Box<Vec<ExecutionStep>>,
+    },
+}
+
+#[derive(Debug, Clone)]
+pub struct ExecutionContext {
+    pub workflow_id: String,
+    pub execution_id: String,
+    pub environment_id: Option<String>,
+    pub variables: HashMap<String, Value>,
+    pub node_results: HashMap<String, NodeResult>,
+    pub loop_stack: Vec<LoopContext>,
+}
+
+#[derive(Debug, Clone)]
+pub struct LoopContext {
+    pub node_id: String,
+    pub index: usize,
+    pub total: usize,
+    pub item: Option<Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NodeResult {
+    pub node_id: String,
+    pub output: Value,
+    pub elapsed: i32,
+    pub loop_results: Option<Vec<Value>>,
+    pub parallel_results: Option<Vec<Value>>,
 }

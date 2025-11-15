@@ -333,11 +333,19 @@ impl Parser {
 
         let mut text = String::new();
         while self.pos < self.chars.len() {
+            // Check if we're at the end of the template tag
+            if self.pos + 1 < self.chars.len()
+                && self.chars[self.pos] == ']'
+                && self.chars[self.pos + 1] == '}' {
+                // Stop before the closing tag ]}
+                break;
+            }
+
             let ch = self.peek_char();
             let is_valid = if start_pos == self.pos {
                 ch.is_alphabetic() || ch == '_' // First is more restrictive
             } else {
-                ch.is_alphanumeric() || ch == '_' || ch == '-'
+                ch.is_alphanumeric() || ch == '_' || ch == '-' || ch == '.' || ch == '[' || ch == ']'
             };
             if is_valid {
                 text.push(ch);

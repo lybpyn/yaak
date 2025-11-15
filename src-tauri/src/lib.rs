@@ -1464,6 +1464,20 @@ pub fn run() {
             crate::commands::cmd_get_workflow_with_steps,
             crate::commands::cmd_get_workflow_execution_results,
             crate::commands::cmd_list_workflow_executions,
+            // Workflow Canvas commands
+            crate::commands::cmd_create_workflow_node,
+            crate::commands::cmd_update_workflow_node,
+            crate::commands::cmd_delete_workflow_node,
+            crate::commands::cmd_create_workflow_edge,
+            crate::commands::cmd_delete_workflow_edge,
+            crate::commands::cmd_get_workflow_canvas,
+            crate::commands::cmd_update_viewport,
+            crate::commands::cmd_validate_workflow_graph,
+            crate::commands::cmd_execute_workflow_canvas,
+            crate::commands::cmd_cancel_workflow_execution_canvas,
+            crate::commands::cmd_export_workflow_json,
+            crate::commands::cmd_import_workflow_json,
+            crate::commands::cmd_migrate_workflow_to_canvas,
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

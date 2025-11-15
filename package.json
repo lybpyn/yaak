@@ -99,5 +99,8 @@
     "typescript": "^5.8.3",
     "vitest": "^3.2.4",
     "workspaces-run": "^1.0.2"
+  },
+  "overrides": {
+    "ajv": "^8.17.1"
   }
 }

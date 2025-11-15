@@ -46,6 +46,7 @@ openssl-sys = { version = "0.9.105", features = ["vendored"] } # For Ubuntu inst
 charset = "0.1.5"
 chrono = { workspace = true, features = ["serde"] }
 cookie = "0.18.1"
+jsonschema = "0.17"
 eventsource-client = { git = "https://github.com/yaakapp/rust-eventsource-client", version = "0.14.0" }
 http = { version = "1.2.0", default-features = false }
 log = "0.4.27"

@@ -22,6 +22,10 @@ export function newStoreData(): ModelStoreData {
     workflow_execution: {},
     workflow_step: {},
     workflow_step_execution: {},
+    workflow_node: {},
+    workflow_edge: {},
+    workflow_viewport: {},
+    workflow_node_execution: {},
     workspace: {},
     workspace_meta: {},
   };

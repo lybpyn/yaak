@@ -19,17 +19,21 @@ export function CreateWorkflowDialog({ workspaceId, hide, onCreate }: Props) {
       className="pb-3 flex flex-col gap-3"
       onSubmit={async (e) => {
         e.preventDefault();
-        const id = await createWorkspaceModel({
-          model: 'workflow',
-          name,
-          description: description || null,
-          workspaceId,
-          environmentId: null,
-          sortPriority: Date.now(),
-          parentModel: 'workflow',
-        });
-        hide();
-        onCreate(id);
+        try {
+          const id = await createWorkspaceModel({
+            model: 'workflow',
+            name,
+            description: description || null,
+            workspaceId,
+            environmentId: null,
+            sortPriority: Date.now(),
+          });
+          hide();
+          onCreate(id);
+        } catch (error) {
+          console.error('Failed to create workflow:', error);
+          alert(`Failed to create workflow: ${error}`);
+        }
       }}
     >
       <PlainInput

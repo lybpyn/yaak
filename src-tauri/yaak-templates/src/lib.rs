@@ -5,5 +5,8 @@ pub mod parser;
 pub mod renderer;
 pub mod wasm;
 
+#[cfg(test)]
+mod renderer_workflow_tests;
+
 pub use parser::*;
 pub use renderer::*;

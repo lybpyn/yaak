@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
-use tauri::{AppHandle, Manager, Runtime};
+use tauri::{AppHandle, Emitter, Runtime};
 use yaak_models::error::Result;
 use yaak_models::models::{
-    HttpRequest, HttpResponse, Workflow, WorkflowExecution, WorkflowExecutionState,
+    WorkflowExecution, WorkflowExecutionState,
     WorkflowStep, WorkflowStepExecution, WorkflowStepExecutionState,
 };
-use yaak_models::queries::{workflow_executions, workflow_steps, workflows};
 use yaak_models::query_manager::QueryManagerExt;
+use yaak_models::util::UpdateSource;
 use yaak_templates::renderer::{StepResponse, WorkflowContext};
 use serde::{Deserialize, Serialize};
 
@@ -30,7 +30,7 @@ pub struct ExecuteWorkflowResponse {
     pub execution_id: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowExecutionUpdate {
     pub execution_id: String,
@@ -38,7 +38,7 @@ pub struct WorkflowExecutionUpdate {
     pub elapsed: Option<i32>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WorkflowStepCompleted {
     pub execution_id: String,
@@ -64,28 +64,26 @@ impl<R: Runtime> WorkflowExecutor<R> {
         let db = self.app_handle.db();
 
         // Load workflow
-        let workflow = workflows::get_workflow(&db, &workflow_id)?
-            .ok_or_else(|| yaak_models::error::Error::Message(format!("Workflow not found: {}", workflow_id)))?;
+        let workflow = db.get_workflow(&workflow_id)?;
 
         // Load and validate steps
-        let steps = workflow_steps::list_workflow_steps(&db, &workflow_id)?;
+        let steps = db.list_workflow_steps(&workflow_id)?;
         let enabled_steps: Vec<_> = steps.into_iter().filter(|s| s.enabled).collect();
 
         if enabled_steps.is_empty() {
-            return Err(yaak_models::error::Error::Message(
+            return Err(yaak_models::error::Error::GenericError(
                 "No enabled steps in workflow".to_string(),
             ));
         }
 
         // Validate all request references exist
         for step in &enabled_steps {
-            let exists = workflow_steps::validate_request_exists(
-                &db,
+            let exists = db.validate_request_exists(
                 &step.request_id,
                 &step.request_model,
             )?;
             if !exists {
-                return Err(yaak_models::error::Error::Message(format!(
+                return Err(yaak_models::error::Error::GenericError(format!(
                     "Step '{}' references deleted request: {}",
                     step.name, step.request_id
                 )));
@@ -118,7 +116,7 @@ impl<R: Runtime> WorkflowExecutor<R> {
         let execution_id = execution.id.clone();
 
         // Save execution to database
-        db.upsert_by_id(execution, yaak_models::util::UpdateSource::App)?;
+        db.upsert(&execution, &UpdateSource::Background)?;
 
         // Initialize cancellation token
         self.cancellation_tokens
@@ -141,18 +139,19 @@ impl<R: Runtime> WorkflowExecutor<R> {
     /// Sequential workflow execution loop
     async fn run_workflow(&self, execution_id: String) -> Result<()> {
         let start_time = std::time::Instant::now();
-        let db = self.app_handle.db();
 
         // Update state to running
         self.update_execution_state(&execution_id, WorkflowExecutionState::Running)
             .await?;
 
         // Load workflow and steps
-        let execution = workflow_executions::get_workflow_execution(&db, &execution_id)?
-            .ok_or_else(|| yaak_models::error::Error::Message("Execution not found".to_string()))?;
-
-        let steps = workflow_steps::list_workflow_steps(&db, &execution.workflow_id)?;
-        let enabled_steps: Vec<_> = steps.into_iter().filter(|s| s.enabled).collect();
+        let (environment_id, enabled_steps) = {
+            let db = self.app_handle.db();
+            let execution = db.get_workflow_execution(&execution_id)?;
+            let steps = db.list_workflow_steps(&execution.workflow_id)?;
+            let enabled_steps: Vec<_> = steps.into_iter().filter(|s| s.enabled).collect();
+            (execution.environment_id, enabled_steps)
+        }; // db dropped here
 
         // Initialize workflow context for data passing
         let mut workflow_context = WorkflowContext::new();
@@ -168,7 +167,7 @@ impl<R: Runtime> WorkflowExecutor<R> {
 
             // Execute step
             match self
-                .execute_step(&execution_id, &step, &execution.environment_id, &workflow_context)
+                .execute_step(&execution_id, &step, &environment_id, &workflow_context)
                 .await
             {
                 Ok(step_response) => {
@@ -178,9 +177,15 @@ impl<R: Runtime> WorkflowExecutor<R> {
                 Err(e) => {
                     // Step failed - halt workflow
                     log::error!("Step '{}' failed: {}", step.name, e);
-                    workflow_executions::update_execution_error(&db, &execution_id, &e.to_string())?;
-                    self.update_execution_state(&execution_id, WorkflowExecutionState::Failed)
-                        .await?;
+                    {
+                        let db = self.app_handle.db();
+                        let mut failed_execution = db.get_workflow_execution(&execution_id)?;
+                        failed_execution.error = Some(e.to_string());
+                        failed_execution.state = WorkflowExecutionState::Failed;
+                        failed_execution.updated_at = chrono::Utc::now().naive_utc();
+                        db.upsert(&failed_execution, &UpdateSource::Background)?;
+                    } // db dropped here
+                    self.emit_execution_update(&execution_id, WorkflowExecutionState::Failed, None)?;
                     return Err(e);
                 }
             }
@@ -188,18 +193,21 @@ impl<R: Runtime> WorkflowExecutor<R> {
 
         // All steps completed successfully
         let elapsed = start_time.elapsed().as_millis() as i32;
-        workflow_executions::update_execution_elapsed(&db, &execution_id, elapsed)?;
-        self.update_execution_state(&execution_id, WorkflowExecutionState::Completed)
-            .await?;
+        {
+            let db = self.app_handle.db();
+            let mut completed_execution = db.get_workflow_execution(&execution_id)?;
+            completed_execution.elapsed = Some(elapsed);
+            completed_execution.state = WorkflowExecutionState::Completed;
+            completed_execution.updated_at = chrono::Utc::now().naive_utc();
+            db.upsert(&completed_execution, &UpdateSource::Background)?;
+        } // db dropped here
+        self.emit_execution_update(&execution_id, WorkflowExecutionState::Completed, Some(elapsed))?;
 
         // Cleanup cancellation token
         self.cancellation_tokens
             .write()
             .unwrap()
             .remove(&execution_id);
-
-        // Prune old executions (keep 50 most recent)
-        workflow_executions::prune_old_executions(&db, &execution.workflow_id)?;
 
         Ok(())
     }
@@ -213,26 +221,28 @@ impl<R: Runtime> WorkflowExecutor<R> {
         workflow_context: &WorkflowContext,
     ) -> Result<StepResponse> {
         let step_start_time = std::time::Instant::now();
-        let db = self.app_handle.db();
 
         // Create WorkflowStepExecution record (state: running)
-        let step_execution = WorkflowStepExecution {
-            id: yaak_models::util::generate_prefixed_id("se"),
-            model: "workflow_step_execution".to_string(),
-            created_at: chrono::Utc::now().naive_utc(),
-            updated_at: chrono::Utc::now().naive_utc(),
-            deleted_at: None,
-            workflow_execution_id: execution_id.to_string(),
-            workflow_step_id: step.id.clone(),
-            request_id: step.request_id.clone(),
-            response_id: None,
-            response_model: None,
-            elapsed: None,
-            state: WorkflowStepExecutionState::Running,
-            error: None,
-        };
-
-        db.upsert_by_id(step_execution.clone(), yaak_models::util::UpdateSource::App)?;
+        let step_execution = {
+            let db = self.app_handle.db();
+            let step_execution = WorkflowStepExecution {
+                id: yaak_models::util::generate_prefixed_id("se"),
+                model: "workflow_step_execution".to_string(),
+                created_at: chrono::Utc::now().naive_utc(),
+                updated_at: chrono::Utc::now().naive_utc(),
+                deleted_at: None,
+                workflow_execution_id: execution_id.to_string(),
+                workflow_step_id: step.id.clone(),
+                request_id: step.request_id.clone(),
+                response_id: None,
+                response_model: None,
+                elapsed: None,
+                state: WorkflowStepExecutionState::Running,
+                error: None,
+            };
+            db.upsert(&step_execution, &UpdateSource::Background)?;
+            step_execution
+        }; // db dropped here
 
         // Execute based on request type
         let result = match step.request_model.as_str() {
@@ -242,11 +252,11 @@ impl<R: Runtime> WorkflowExecutor<R> {
             }
             "grpc_request" => {
                 // TODO: Implement gRPC step execution
-                Err(yaak_models::error::Error::Message(
+                Err(yaak_models::error::Error::GenericError(
                     "gRPC workflow steps not yet implemented".to_string(),
                 ))
             }
-            _ => Err(yaak_models::error::Error::Message(format!(
+            _ => Err(yaak_models::error::Error::GenericError(format!(
                 "Unknown request model: {}",
                 step.request_model
             ))),
@@ -257,46 +267,50 @@ impl<R: Runtime> WorkflowExecutor<R> {
         match result {
             Ok((response_id, step_response)) => {
                 // Update step execution with success
-                let mut updated_step_exec = step_execution.clone();
-                updated_step_exec.response_id = Some(response_id);
-                updated_step_exec.response_model = Some("http_response".to_string());
-                updated_step_exec.elapsed = Some(elapsed);
-                updated_step_exec.state = WorkflowStepExecutionState::Completed;
-                updated_step_exec.updated_at = chrono::Utc::now().naive_utc();
-
-                db.upsert_by_id(updated_step_exec.clone(), yaak_models::util::UpdateSource::App)?;
+                {
+                    let db = self.app_handle.db();
+                    let mut updated_step_exec = step_execution.clone();
+                    updated_step_exec.response_id = Some(response_id);
+                    updated_step_exec.response_model = Some("http_response".to_string());
+                    updated_step_exec.elapsed = Some(elapsed);
+                    updated_step_exec.state = WorkflowStepExecutionState::Completed;
+                    updated_step_exec.updated_at = chrono::Utc::now().naive_utc();
+                    db.upsert(&updated_step_exec, &UpdateSource::Background)?;
+                } // db dropped here
 
                 // Emit step completed event
-                self.app_handle.emit_all(
+                let _ = self.app_handle.emit(
                     "workflow_step_completed",
                     WorkflowStepCompleted {
                         execution_id: execution_id.to_string(),
                         step_id: step.id.clone(),
                         state: "completed".to_string(),
                     },
-                )?;
+                );
 
                 Ok(step_response)
             }
             Err(e) => {
                 // Update step execution with error
-                let mut updated_step_exec = step_execution;
-                updated_step_exec.elapsed = Some(elapsed);
-                updated_step_exec.state = WorkflowStepExecutionState::Failed;
-                updated_step_exec.error = Some(e.to_string());
-                updated_step_exec.updated_at = chrono::Utc::now().naive_utc();
-
-                db.upsert_by_id(updated_step_exec, yaak_models::util::UpdateSource::App)?;
+                {
+                    let db = self.app_handle.db();
+                    let mut updated_step_exec = step_execution;
+                    updated_step_exec.elapsed = Some(elapsed);
+                    updated_step_exec.state = WorkflowStepExecutionState::Failed;
+                    updated_step_exec.error = Some(e.to_string());
+                    updated_step_exec.updated_at = chrono::Utc::now().naive_utc();
+                    db.upsert(&updated_step_exec, &UpdateSource::Background)?;
+                } // db dropped here
 
                 // Emit step failed event
-                self.app_handle.emit_all(
+                let _ = self.app_handle.emit(
                     "workflow_step_completed",
                     WorkflowStepCompleted {
                         execution_id: execution_id.to_string(),
                         step_id: step.id.clone(),
                         state: "failed".to_string(),
                     },
-                )?;
+                );
 
                 Err(e)
             }
@@ -307,14 +321,13 @@ impl<R: Runtime> WorkflowExecutor<R> {
     async fn execute_http_step(
         &self,
         request_id: &str,
-        environment_id: &Option<String>,
-        workflow_context: &WorkflowContext,
+        _environment_id: &Option<String>,
+        _workflow_context: &WorkflowContext,
     ) -> Result<(String, StepResponse)> {
         let db = self.app_handle.db();
 
         // Load HTTP request
-        let request = yaak_models::queries::http_requests::get(request_id)?
-            .ok_or_else(|| yaak_models::error::Error::Message(format!("HTTP request not found: {}", request_id)))?;
+        let _request = db.get_http_request(request_id)?;
 
         // TODO: Render request with workflow context
         // For now, use standard rendering without workflow context
@@ -325,7 +338,7 @@ impl<R: Runtime> WorkflowExecutor<R> {
         // crate::http_request::send_http_request(app_handle, request, environment_id, workflow_context)
 
         // For MVP, return error indicating this needs proper integration
-        Err(yaak_models::error::Error::Message(
+        Err(yaak_models::error::Error::GenericError(
             "HTTP workflow step execution requires integration with http_request.rs".to_string(),
         ))
     }
@@ -337,18 +350,32 @@ impl<R: Runtime> WorkflowExecutor<R> {
         state: WorkflowExecutionState,
     ) -> Result<()> {
         let db = self.app_handle.db();
-        workflow_executions::update_execution_state(&db, execution_id, state.clone())?;
+        let mut execution = db.get_workflow_execution(execution_id)?;
+        execution.state = state.clone();
+        execution.updated_at = chrono::Utc::now().naive_utc();
+        db.upsert(&execution, &UpdateSource::Background)?;
 
         // Emit state update event
-        self.app_handle.emit_all(
+        self.emit_execution_update(execution_id, state, None)?;
+
+        Ok(())
+    }
+
+    /// Emit execution update event
+    fn emit_execution_update(
+        &self,
+        execution_id: &str,
+        state: WorkflowExecutionState,
+        elapsed: Option<i32>,
+    ) -> Result<()> {
+        let _ = self.app_handle.emit(
             "workflow_execution_updated",
             WorkflowExecutionUpdate {
                 execution_id: execution_id.to_string(),
                 state: state.to_string(),
-                elapsed: None,
+                elapsed,
             },
-        )?;
-
+        );
         Ok(())
     }
 

@@ -68,7 +68,11 @@
     "uuid": "^11.1.0",
     "vkbeautify": "^0.99.3",
     "whatwg-mimetype": "^4.0.0",
-    "yaml": "^2.6.1"
+    "yaml": "^2.6.1",
+    "reactflow": "^11.11.4",
+    "@monaco-editor/react": "^4.7.0",
+    "jsonpath-plus": "^10.3.0",
+    "dagre": "^0.8.5"
   },
   "devDependencies": {
     "@lezer/generator": "^1.8.0",

@@ -50,6 +50,14 @@ export const WorkspaceActionsDropdown = memo(function WorkspaceActionsDropdown({
 
     const itemsAfter: DropdownItem[] = [
       {
+        label: 'Test Workflows',
+        leftSlot: <Icon icon="play_circle" />,
+        onSelect: () => {
+          if (workspace == null) return;
+          window.location.href = `/workspaces/${workspace.id}/workflows`;
+        },
+      },
+      {
         label: 'Workspace Settings',
         leftSlot: <Icon icon="settings" />,
         hotKeyAction: 'workspace_settings.show',

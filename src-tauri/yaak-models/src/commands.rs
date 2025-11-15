@@ -20,6 +20,8 @@ pub(crate) fn upsert<R: Runtime>(window: WebviewWindow<R>, model: AnyModel) -> R
         AnyModel::Plugin(m) => db.upsert_plugin(&m, source)?.id,
         AnyModel::Settings(m) => db.upsert_settings(&m, source)?.id,
         AnyModel::WebsocketRequest(m) => db.upsert_websocket_request(&m, source)?.id,
+        AnyModel::Workflow(m) => db.upsert(&m, source)?.id,
+        AnyModel::WorkflowStep(m) => db.upsert(&m, source)?.id,
         AnyModel::Workspace(m) => db.upsert_workspace(&m, source)?.id,
         AnyModel::WorkspaceMeta(m) => db.upsert_workspace_meta(&m, source)?.id,
         a => return Err(GenericError(format!("Cannot upsert AnyModel {a:?})"))),
@@ -44,6 +46,8 @@ pub(crate) fn delete<R: Runtime>(window: WebviewWindow<R>, model: AnyModel) -> R
             AnyModel::Plugin(m) => tx.delete_plugin(&m, source)?.id,
             AnyModel::WebsocketConnection(m) => tx.delete_websocket_connection(&m, source)?.id,
             AnyModel::WebsocketRequest(m) => tx.delete_websocket_request(&m, source)?.id,
+            AnyModel::Workflow(m) => tx.delete_workflow(&m, source)?.id,
+            AnyModel::WorkflowStep(m) => tx.delete_workflow_step(&m, source)?.id,
             AnyModel::Workspace(m) => tx.delete_workspace(&m, source)?.id,
             a => return Err(GenericError(format!("Cannot delete AnyModel {a:?})"))),
         };
@@ -137,7 +141,11 @@ pub(crate) fn workspace_models<R: Runtime>(
         l.append(&mut db.list_http_responses(wid, None)?.into_iter().map(Into::into).collect());
         l.append(&mut db.list_websocket_connections(wid)?.into_iter().map(Into::into).collect());
         l.append(&mut db.list_websocket_requests(wid)?.into_iter().map(Into::into).collect());
+        l.append(&mut db.list_workflows_by_workspace(wid)?.into_iter().map(Into::into).collect());
         l.append(&mut db.list_workspace_metas(wid)?.into_iter().map(Into::into).collect());
+        l.append(&mut db.list_workflow_nodes_by_workspace(wid)?.into_iter().map(Into::into).collect());
+        l.append(&mut db.list_workflow_edges_by_workspace(wid)?.into_iter().map(Into::into).collect());
+        l.append(&mut db.list_workflow_viewports_by_workspace(wid)?.into_iter().map(Into::into).collect());
     }
 
     let j = serde_json::to_string(&l)?;

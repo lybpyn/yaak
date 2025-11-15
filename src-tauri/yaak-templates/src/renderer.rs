@@ -68,6 +68,7 @@ pub async fn parse_and_render<T: TemplateCallback>(
     parse_and_render_at_depth(template, vars, cb, opt, 1).await
 }
 
+#[derive(PartialEq)]
 pub enum RenderErrorBehavior {
     Throw,
     ReturnEmpty,
@@ -679,12 +680,12 @@ mod render_json_value_raw_tests {
 // Workflow Template Support
 // ============================================================================
 
-use std::collections::HashMap;
-
 /// Context for workflow execution containing previous step responses
 #[derive(Debug, Clone)]
 pub struct WorkflowContext {
     step_responses: Vec<StepResponse>,
+    loop_context: Option<LoopContext>,
+    conditional_branch: Option<String>,
 }
 
 /// Response data from a single workflow step
@@ -697,10 +698,20 @@ pub struct StepResponse {
     pub response_url: String,
 }
 
+/// Context for loop execution (mirrors workflow execution context)
+#[derive(Debug, Clone)]
+pub struct LoopContext {
+    pub index: usize,
+    pub total: usize,
+    pub item: Option<serde_json::Value>,
+}
+
 impl WorkflowContext {
     pub fn new() -> Self {
         Self {
             step_responses: Vec::new(),
+            loop_context: None,
+            conditional_branch: None,
         }
     }
 
@@ -710,6 +721,26 @@ impl WorkflowContext {
 
     pub fn get_step_response(&self, index: usize) -> Option<&StepResponse> {
         self.step_responses.get(index)
+    }
+
+    pub fn set_loop_context(&mut self, context: LoopContext) {
+        self.loop_context = Some(context);
+    }
+
+    pub fn clear_loop_context(&mut self) {
+        self.loop_context = None;
+    }
+
+    pub fn get_loop_context(&self) -> Option<&LoopContext> {
+        self.loop_context.as_ref()
+    }
+
+    pub fn set_conditional_branch(&mut self, branch: String) {
+        self.conditional_branch = Some(branch);
+    }
+
+    pub fn get_conditional_branch(&self) -> Option<&String> {
+        self.conditional_branch.as_ref()
     }
 
     pub fn len(&self) -> usize {
@@ -793,21 +824,27 @@ async fn render_with_workflow<T: TemplateCallback>(
     }
 
     let mut result = String::new();
-    for token in &tokens.0 {
+    for token in &tokens.tokens {
         let rendered = match token {
-            Token::Text(t) => t.clone(),
-            Token::Variable(name) => {
-                render_value_with_workflow(name, vars, workflow_ctx, cb, opt, depth).await?
-            }
-            Token::Function { name, args } => {
-                let mut fn_args = HashMap::new();
-                for (arg_name, arg_val) in args {
-                    let arg_val_str = render_with_workflow(arg_val, vars, workflow_ctx, cb, opt, depth + 1).await?;
-                    let arg_val_transformed = cb.transform_arg(name, arg_name, &arg_val_str)?;
-                    fn_args.insert(arg_name.to_string(), json!(arg_val_transformed));
+            Token::Raw { text } => text.clone(),
+            Token::Tag { val } => match val {
+                Val::Str { text } => text.clone(),
+                Val::Var { name } => {
+                    Box::pin(render_value_with_workflow(name, vars, workflow_ctx, cb, opt, depth)).await?
                 }
-                cb.run(name, fn_args).await?
-            }
+                Val::Bool { value } => value.to_string(),
+                Val::Fn { name, args } => {
+                    let mut fn_args = HashMap::new();
+                    for arg in args {
+                        let arg_val_str = Box::pin(render_with_workflow(&Tokens { tokens: vec![Token::Tag { val: arg.value.clone() }] }, vars, workflow_ctx, cb, opt, depth + 1)).await?;
+                        let arg_val_transformed = cb.transform_arg(name, &arg.name, &arg_val_str)?;
+                        fn_args.insert(arg.name.to_string(), json!(arg_val_transformed));
+                    }
+                    cb.run(name, fn_args).await?
+                }
+                Val::Null => String::new(),
+            },
+            Token::Eof => String::new(),
         };
         result.push_str(&rendered);
     }
@@ -828,19 +865,23 @@ async fn render_value_with_workflow<T: TemplateCallback>(
         if name.starts_with("workflow.") {
             return resolve_workflow_variable(name, wf_ctx);
         }
+        if name.starts_with("loop.") {
+            return resolve_loop_variable(name, wf_ctx);
+        }
+        if name.starts_with("conditional.") {
+            return resolve_conditional_variable(name, wf_ctx);
+        }
     }
 
     // Fallback to regular variable resolution
     match vars.get(name) {
         Some(v) => {
             let tokens = Parser::new(v).parse()?;
-            render_with_workflow(&tokens, vars, workflow_ctx, cb, opt, depth + 1).await
+            Box::pin(render_with_workflow(&tokens, vars, workflow_ctx, cb, opt, depth + 1)).await
         }
         None => {
-            if opt.fail_on_error {
-                Err(VariableNotFound {
-                    name: name.to_string(),
-                })
+            if opt.error_behavior == RenderErrorBehavior::Throw {
+                Err(VariableNotFound(name.to_string()))
             } else {
                 warn!("Variable not found: {}", name);
                 Ok(format!("{{{{{}}}}}", name))
@@ -943,6 +984,117 @@ fn extract_json_field(json: &serde_json::Value, path: &str, step_index: usize) -
                 return Err(crate::error::Error::WorkflowFieldNotFound(
                     format!("response.body.{}", path),
                     step_index,
+                ));
+            }
+        }
+    }
+
+    // Convert final value to string
+    let result = match current {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Null => "null".to_string(),
+        _ => serde_json::to_string(current).unwrap_or_else(|_| "null".to_string()),
+    };
+
+    Ok(result)
+}
+
+/// Resolve loop template variables
+/// Syntax: loop.index, loop.total, loop.item.field
+/// Examples:
+///   - loop.index  - Current iteration index (0-based)
+///   - loop.total  - Total number of iterations
+///   - loop.item   - Current item being processed
+///   - loop.item.name - Field from current item (if item is object)
+fn resolve_loop_variable(path: &str, workflow_ctx: &WorkflowContext) -> Result<String> {
+    let loop_ctx = workflow_ctx
+        .get_loop_context()
+        .ok_or_else(|| crate::error::Error::WorkflowInvalidSyntax(
+            "Loop context not available (not inside a loop)".to_string()
+        ))?;
+
+    // Extract field after "loop."
+    let field = path
+        .strip_prefix("loop.")
+        .ok_or_else(|| crate::error::Error::WorkflowInvalidSyntax(
+            format!("Invalid loop variable syntax: {}", path)
+        ))?;
+
+    match field {
+        "index" => Ok(loop_ctx.index.to_string()),
+        "total" => Ok(loop_ctx.total.to_string()),
+        "item" => {
+            // Return entire item as JSON string
+            match &loop_ctx.item {
+                Some(item) => Ok(serde_json::to_string(item).unwrap_or_else(|_| "null".to_string())),
+                None => Ok("null".to_string()),
+            }
+        }
+        _ if field.starts_with("item.") => {
+            // Extract nested field from item (e.g., loop.item.name)
+            let item_field = field.strip_prefix("item.").unwrap();
+            match &loop_ctx.item {
+                Some(item) => extract_json_field_simple(item, item_field),
+                None => Err(crate::error::Error::WorkflowInvalidSyntax(
+                    "Loop item is null".to_string()
+                )),
+            }
+        }
+        _ => Err(crate::error::Error::WorkflowInvalidSyntax(
+            format!("Unknown loop variable: {}", field)
+        )),
+    }
+}
+
+/// Resolve conditional template variables
+/// Syntax: conditional.branch
+/// Examples:
+///   - conditional.branch - Name of the branch that was taken (e.g., "success", "error")
+fn resolve_conditional_variable(path: &str, workflow_ctx: &WorkflowContext) -> Result<String> {
+    if path != "conditional.branch" {
+        return Err(crate::error::Error::WorkflowInvalidSyntax(
+            format!("Invalid conditional variable syntax: {}", path)
+        ));
+    }
+
+    workflow_ctx
+        .get_conditional_branch()
+        .cloned()
+        .ok_or_else(|| crate::error::Error::WorkflowInvalidSyntax(
+            "Conditional context not available (not inside a conditional branch)".to_string()
+        ))
+}
+
+/// Extract field from JSON using dot notation (simplified version without step context)
+fn extract_json_field_simple(json: &serde_json::Value, path: &str) -> Result<String> {
+    if path.is_empty() {
+        return Ok(serde_json::to_string(json).unwrap_or_else(|_| "null".to_string()));
+    }
+
+    let parts: Vec<&str> = path.split('.').collect();
+    let mut current = json;
+
+    for part in parts {
+        match current {
+            serde_json::Value::Object(map) => {
+                current = map.get(part).ok_or_else(|| {
+                    crate::error::Error::WorkflowFieldNotFound(format!("{}", path), 0)
+                })?;
+            }
+            serde_json::Value::Array(arr) => {
+                let index: usize = part.parse().map_err(|_| {
+                    crate::error::Error::WorkflowFieldNotFound(format!("{}", path), 0)
+                })?;
+                current = arr.get(index).ok_or_else(|| {
+                    crate::error::Error::WorkflowFieldNotFound(format!("{}", path), 0)
+                })?;
+            }
+            _ => {
+                return Err(crate::error::Error::WorkflowFieldNotFound(
+                    format!("{}", path),
+                    0,
                 ));
             }
         }

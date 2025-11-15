@@ -215,6 +215,14 @@ impl TryFrom<AnyModel> for SyncModel {
             AnyModel::WebsocketEvent(m) => return Err(UnknownModel(m.model)),
             AnyModel::WorkspaceMeta(m) => return Err(UnknownModel(m.model)),
             AnyModel::SyncState(m) => return Err(UnknownModel(m.model)),
+            AnyModel::Workflow(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowStep(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowExecution(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowStepExecution(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowNode(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowEdge(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowViewport(m) => return Err(UnknownModel(m.model)),
+            AnyModel::WorkflowNodeExecution(m) => return Err(UnknownModel(m.model)),
         };
         Ok(m)
     }

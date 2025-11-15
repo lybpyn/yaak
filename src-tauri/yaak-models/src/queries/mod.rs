@@ -20,6 +20,9 @@ mod websocket_requests;
 pub mod workflow_executions;
 pub mod workflow_steps;
 pub mod workflows;
+pub mod workflow_nodes;
+pub mod workflow_edges;
+pub mod workflow_viewport;
 mod workspace_metas;
 mod workspaces;
 

@@ -47,7 +47,20 @@ type TauriCmd =
   | 'cmd_cancel_workflow_execution'
   | 'cmd_get_workflow_with_steps'
   | 'cmd_get_workflow_execution_results'
-  | 'cmd_list_workflow_executions';
+  | 'cmd_list_workflow_executions'
+  | 'cmd_create_workflow_node'
+  | 'cmd_update_workflow_node'
+  | 'cmd_delete_workflow_node'
+  | 'cmd_create_workflow_edge'
+  | 'cmd_delete_workflow_edge'
+  | 'cmd_get_workflow_canvas'
+  | 'cmd_update_viewport'
+  | 'cmd_validate_workflow_graph'
+  | 'cmd_execute_workflow_canvas'
+  | 'cmd_cancel_workflow_execution_canvas'
+  | 'cmd_export_workflow_json'
+  | 'cmd_import_workflow_json'
+  | 'cmd_migrate_workflow_to_canvas';
 
 export async function invokeCmd<T>(cmd: TauriCmd, args?: InvokeArgs): Promise<T> {
   // console.log('RUN COMMAND', cmd, args);
