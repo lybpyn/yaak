@@ -92,5 +92,22 @@
     --transition-duration: 100ms ease-in-out;
     --color-white: 255 100% 100%;
     --color-black: 255 0% 0%;
+
+    /* n8n-inspired workflow UI theme colors */
+    --n8n-primary: #2c77df;
+    --n8n-primary-light: #e6f0ff;
+    --n8n-dark: #1e2b3c;
+    --n8n-canvas-bg: #f6f9fc;
+    --n8n-sidebar-bg: #f0f4f9;
+    --n8n-panel-bg: #f8fafd;
+    --n8n-success: #38b153;
+    --n8n-warning: #ff9f29;
+    --n8n-error: #f75a5a;
+    --n8n-border: #e0e6ee;
+
+    /* Node type colors */
+    --node-trigger: #10b981;
+    --node-action: #8b5cf6;
+    --node-logic: #f59e0b;
   }
 }

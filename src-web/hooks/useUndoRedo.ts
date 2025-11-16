@@ -1,178 +1,110 @@
 import { useAtom } from 'jotai';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { undoStackAtom, redoStackAtom, type CanvasAction } from '@yaakapp-internal/models';
-import { invokeCmd } from '../lib/tauri';
 
-const MAX_UNDO_STACK_SIZE = 50;
+const MAX_STACK_SIZE = 50;
 
 /**
- * Undo/Redo system for canvas operations
- * Maintains 50-action history
+ * Action interface for undo/redo operations
+ */
+export interface UndoRedoAction {
+  type: string;
+  undo: () => void | Promise<void>;
+  redo: () => void | Promise<void>;
+}
+
+/**
+ * Hook for managing undo/redo operations with a limited action stack
  */
 export function useUndoRedo() {
   const [undoStack, setUndoStack] = useAtom(undoStackAtom);
   const [redoStack, setRedoStack] = useAtom(redoStackAtom);
 
-  // Push new action to undo stack
-  const pushAction = useCallback(
-    (action: CanvasAction) => {
-      setUndoStack((prev) => [...prev, action].slice(-MAX_UNDO_STACK_SIZE));
-      setRedoStack([]); // Clear redo stack on new action
+  /**
+   * Record a new action to the undo stack
+   * Clears the redo stack when a new action is recorded
+   */
+  const recordAction = useCallback(
+    (action: UndoRedoAction) => {
+      const canvasAction: CanvasAction = {
+        type: action.type,
+        payload: action,
+        timestamp: Date.now(),
+      };
+
+      setUndoStack((prev) => {
+        const newStack = [...prev, canvasAction];
+        // Limit stack to MAX_STACK_SIZE (circular buffer)
+        if (newStack.length > MAX_STACK_SIZE) {
+          return newStack.slice(newStack.length - MAX_STACK_SIZE);
+        }
+        return newStack;
+      });
+
+      // Clear redo stack when new action is recorded
+      setRedoStack([]);
     },
-    [setUndoStack, setRedoStack]
+    [setUndoStack, setRedoStack],
   );
 
-  // Undo last action
+  /**
+   * Undo the last action from the undo stack
+   */
   const undo = useCallback(async () => {
     if (undoStack.length === 0) return;
 
-    const action = undoStack[undoStack.length - 1];
-    if (!action) return;
+    const lastAction = undoStack[undoStack.length - 1];
+    const action = lastAction.payload as UndoRedoAction;
 
-    try {
-      // Revert action
-      switch (action.type) {
-        case 'ADD_NODE':
-          await invokeCmd('cmd_delete_workflow_node', {
-            nodeId: action.payload.nodeId,
-          });
-          break;
+    // Execute undo function
+    await action.undo();
 
-        case 'DELETE_NODE':
-          await invokeCmd('cmd_create_workflow_node', {
-            req: action.payload.node,
-          });
-          break;
-
-        case 'MOVE_NODE':
-          await invokeCmd('cmd_update_workflow_node', {
-            req: {
-              id: action.payload.nodeId,
-              positionX: action.payload.oldPos.x,
-              positionY: action.payload.oldPos.y,
-            },
-          });
-          break;
-
-        case 'ADD_EDGE':
-          await invokeCmd('cmd_delete_workflow_edge', {
-            edgeId: action.payload.edgeId,
-          });
-          break;
-
-        case 'DELETE_EDGE':
-          await invokeCmd('cmd_create_workflow_edge', {
-            req: action.payload.edge,
-          });
-          break;
-
-        case 'UPDATE_NODE_CONFIG':
-          await invokeCmd('cmd_update_workflow_node', {
-            req: {
-              id: action.payload.nodeId,
-              config: action.payload.oldConfig,
-            },
-          });
-          break;
-
-        case 'PASTE_NODES':
-          // Delete all pasted nodes
-          for (const nodeId of action.payload.nodeIds) {
-            await invokeCmd('cmd_delete_workflow_node', { nodeId });
-          }
-          break;
-
-        default:
-          console.warn('Unknown action type for undo:', action.type);
-      }
-
-      // Move action to redo stack
-      setRedoStack((prev) => [...prev, action]);
-      setUndoStack((prev) => prev.slice(0, -1));
-    } catch (err) {
-      console.error('Undo failed:', err);
-      throw err;
-    }
+    // Move action from undo to redo stack
+    setUndoStack((prev) => prev.slice(0, -1));
+    setRedoStack((prev) => [...prev, lastAction]);
   }, [undoStack, setUndoStack, setRedoStack]);
 
-  // Redo last undone action
+  /**
+   * Redo the last undone action from the redo stack
+   */
   const redo = useCallback(async () => {
     if (redoStack.length === 0) return;
 
-    const action = redoStack[redoStack.length - 1];
-    if (!action) return;
+    const lastAction = redoStack[redoStack.length - 1];
+    const action = lastAction.payload as UndoRedoAction;
 
-    try {
-      // Reapply action
-      switch (action.type) {
-        case 'ADD_NODE':
-          await invokeCmd('cmd_create_workflow_node', {
-            req: action.payload.node,
-          });
-          break;
+    // Execute redo function
+    await action.redo();
 
-        case 'DELETE_NODE':
-          await invokeCmd('cmd_delete_workflow_node', {
-            nodeId: action.payload.nodeId,
-          });
-          break;
-
-        case 'MOVE_NODE':
-          await invokeCmd('cmd_update_workflow_node', {
-            req: {
-              id: action.payload.nodeId,
-              positionX: action.payload.newPos.x,
-              positionY: action.payload.newPos.y,
-            },
-          });
-          break;
-
-        case 'ADD_EDGE':
-          await invokeCmd('cmd_create_workflow_edge', {
-            req: action.payload.edge,
-          });
-          break;
-
-        case 'DELETE_EDGE':
-          await invokeCmd('cmd_delete_workflow_edge', {
-            edgeId: action.payload.edgeId,
-          });
-          break;
-
-        case 'UPDATE_NODE_CONFIG':
-          await invokeCmd('cmd_update_workflow_node', {
-            req: {
-              id: action.payload.nodeId,
-              config: action.payload.newConfig,
-            },
-          });
-          break;
-
-        case 'PASTE_NODES':
-          // Re-create all pasted nodes
-          for (const node of action.payload.nodes) {
-            await invokeCmd('cmd_create_workflow_node', { req: node });
-          }
-          break;
-
-        default:
-          console.warn('Unknown action type for redo:', action.type);
+    // Move action from redo to undo stack
+    setRedoStack((prev) => prev.slice(0, -1));
+    setUndoStack((prev) => {
+      const newStack = [...prev, lastAction];
+      // Maintain stack size limit
+      if (newStack.length > MAX_STACK_SIZE) {
+        return newStack.slice(newStack.length - MAX_STACK_SIZE);
       }
+      return newStack;
+    });
+  }, [redoStack, setRedoStack, setUndoStack]);
 
-      // Move action back to undo stack
-      setUndoStack((prev) => [...prev, action]);
-      setRedoStack((prev) => prev.slice(0, -1));
-    } catch (err) {
-      console.error('Redo failed:', err);
-      throw err;
-    }
-  }, [redoStack, setUndoStack, setRedoStack]);
+  /**
+   * Check if undo is available
+   */
+  const canUndo = useMemo(() => undoStack.length > 0, [undoStack]);
+
+  /**
+   * Check if redo is available
+   */
+  const canRedo = useMemo(() => redoStack.length > 0, [redoStack]);
 
   return {
     undo,
     redo,
-    pushAction,
-    canUndo: undoStack.length > 0,
-    canRedo: redoStack.length > 0,
+    recordAction,
+    canUndo,
+    canRedo,
+    undoStackSize: undoStack.length,
+    redoStackSize: redoStack.length,
   };
 }

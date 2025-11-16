@@ -1,151 +1,107 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
-import classNames from 'classnames';
 import { WorkflowNode } from '@yaakapp-internal/models';
+import { cn } from '../../../lib/cn';
+import { getNodeIcon, getNodeColor } from '../../../lib/workflow-icons';
+import { Loader, AlertCircle } from 'lucide-react';
 
-interface BaseNodeProps {
-  data: NodeProps['data'];
-  selected: boolean;
-  icon: string;
-  color: string;
-  title: string;
-  subtitle: string;
-  children?: ReactNode;
-  inputHandles?: string[];
-  outputHandles?: { id: string; label?: string }[];
-  executionStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+interface BaseNodeData {
+  node: WorkflowNode;
+  isSelected?: boolean;
+  isExecuting?: boolean;
+  hasError?: boolean;
+  errorMessage?: string;
 }
 
-export function BaseNode({
-  data,
-  selected,
-  icon,
-  color,
-  title,
-  subtitle,
-  children,
-  inputHandles = ['input'],
-  outputHandles = [{ id: 'output' }],
-  executionStatus,
-}: BaseNodeProps) {
-  const node = data.node as WorkflowNode;
-  const isConfigured = data.isConfigured ?? true;
+interface BaseNodeProps {
+  data: BaseNodeData;
+  selected?: boolean;
+}
+
+/**
+ * Enhanced base node component with n8n-style design
+ * Size: 100x100px square with rounded corners
+ * States: normal, selected, disabled, error, executing
+ */
+export function BaseNode({ data, selected = false }: BaseNodeProps) {
+  const { node, isExecuting = false, hasError = false, errorMessage } = data;
+  const [showTooltip, setShowTooltip] = useState(false);
+
+  const nodeIcon = getNodeIcon(node.nodeSubtype);
+  const nodeColor = getNodeColor(node.nodeType);
 
   return (
     <div
-      className={classNames(
-        'relative bg-surface border-2 rounded-2xl p-6 min-w-[250px] shadow-sm transition-all',
-        'hover:shadow-md',
-        {
-          'border-purple-500': selected,
-          'border-border-focus': !selected && node.enabled && !executionStatus,
-          'border-border opacity-60': !node.enabled,
-          'border-green-500': executionStatus === 'completed',
-          'border-red-500': executionStatus === 'failed',
-          'border-yellow-500 animate-pulse': executionStatus === 'running',
-          'border-gray-500': executionStatus === 'pending',
-          'border-amber-500': executionStatus === 'skipped',
-        }
+      className={cn(
+        // Base styles - 100x100px square
+        'w-[100px] h-[100px] rounded-xl bg-white',
+        // Shadow
+        'shadow-node',
+        // Border based on state
+        'border-2 transition-all duration-200',
+        // Normal state
+        !selected && !hasError && !node.disabled && 'border-transparent',
+        // Selected state
+        selected && !hasError && 'border-primary shadow-lg',
+        // Error state with pulse animation
+        hasError && 'border-danger animate-pulse-error',
+        // Disabled state
+        node.disabled && 'opacity-60 grayscale',
+        // Hover effect (lift)
+        !node.disabled && 'hover:-translate-y-1 hover:shadow-node-hover cursor-pointer'
       )}
-      style={{ width: `${node.width}px` }}
+      onMouseEnter={() => hasError && setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
     >
-      {/* Status Badge */}
-      <div className="absolute -top-2 -right-2">
-        {!node.enabled ? (
-          <span className="px-2 py-1 text-xs bg-orange-500 text-white rounded-full">
-            Disabled
-          </span>
-        ) : isConfigured ? (
-          <span className="px-2 py-1 text-xs bg-blue-500 text-white rounded-full">
-            Configured
-          </span>
+      {/* Header - 30px colored section */}
+      <div
+        className="h-[30px] px-2 flex items-center gap-1 rounded-t-xl"
+        style={{ backgroundColor: `${nodeColor}20` }}
+      >
+        <span className="text-sm">{nodeIcon}</span>
+        <span className="text-xs font-semibold truncate flex-1">{node.name}</span>
+      </div>
+
+      {/* Body - centered content */}
+      <div className="h-[70px] flex items-center justify-center relative">
+        {isExecuting ? (
+          <Loader className="w-6 h-6 animate-spin text-primary" />
         ) : (
-          <span className="px-2 py-1 text-xs bg-gray-500 text-white rounded-full">
-            Unconfigured
-          </span>
+          <span className="text-2xl">{nodeIcon}</span>
+        )}
+
+        {/* Error icon */}
+        {hasError && (
+          <AlertCircle className="absolute top-1 right-1 w-4 h-4 text-danger" />
+        )}
+
+        {/* Disabled badge */}
+        {node.disabled && (
+          <div className="absolute top-1 right-1 px-1.5 py-0.5 bg-secondary text-white text-[9px] font-medium rounded rotate-12">
+            Disabled
+          </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="flex flex-col items-center text-center gap-3">
-        {/* Icon */}
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center"
-          style={{ backgroundColor: `${color}20` }}
-        >
-          <span className="text-2xl">{icon}</span>
-        </div>
+      {/* Input Port (Left) */}
+      <Handle
+        type="target"
+        position={Position.Left}
+        className="!w-3 !h-3 !bg-white !border-2 !border-primary"
+      />
 
-        {/* Title */}
-        <div className="flex flex-col gap-1">
-          <h4 className="font-semibold text-sm">{title}</h4>
-          <p className="text-xs text-text-subtle">{subtitle}</p>
-        </div>
+      {/* Output Port (Right) */}
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="!w-3 !h-3 !bg-white !border-2 !border-primary"
+      />
 
-        {/* Custom Content */}
-        {children}
-      </div>
-
-      {/* Input Handles */}
-      {inputHandles.map((handleId) => (
-        <Handle
-          key={handleId}
-          type="target"
-          position={Position.Left}
-          id={handleId}
-          className="w-4 h-4 bg-border-focus border-2 border-surface"
-        />
-      ))}
-
-      {/* Output Handles */}
-      {outputHandles.length === 1 ? (
-        <Handle
-          type="source"
-          position={Position.Right}
-          id={outputHandles[0].id}
-          className="w-4 h-4 bg-border-focus border-2 border-surface"
-        />
-      ) : (
-        outputHandles.map((handle, index) => (
-          <Handle
-            key={handle.id}
-            type="source"
-            position={Position.Right}
-            id={handle.id}
-            className="w-4 h-4 bg-border-focus border-2 border-surface"
-            style={{
-              top: `${((index + 1) / (outputHandles.length + 1)) * 100}%`,
-            }}
-          >
-            {handle.label && (
-              <div className="absolute left-full ml-2 text-xs whitespace-nowrap">
-                {handle.label}
-              </div>
-            )}
-          </Handle>
-        ))
-      )}
-
-      {/* Execution Status Overlay */}
-      {executionStatus === 'completed' && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center">
-            <span className="text-white text-xl">✓</span>
-          </div>
-        </div>
-      )}
-      {executionStatus === 'failed' && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="w-8 h-8 rounded-full bg-red-500 flex items-center justify-center">
-            <span className="text-white text-xl">✗</span>
-          </div>
-        </div>
-      )}
-      {executionStatus === 'running' && (
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-          <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center animate-spin">
-            <span className="text-white text-xl">⟳</span>
-          </div>
+      {/* Error Tooltip */}
+      {showTooltip && hasError && errorMessage && (
+        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-danger/90 text-white rounded-lg text-xs max-w-[200px] z-50 shadow-lg">
+          {errorMessage}
+          <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-danger/90 rotate-45" />
         </div>
       )}
     </div>

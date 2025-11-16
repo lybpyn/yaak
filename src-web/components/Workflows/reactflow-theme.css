@@ -1,0 +1,111 @@
+/**
+ * ReactFlow Theme Customization for Workflow UI
+ * Based on n8n design specifications
+ */
+
+/* Override ReactFlow defaults */
+.react-flow__node {
+  cursor: pointer;
+  user-select: none;
+}
+
+.react-flow__node.selected {
+  box-shadow: 0 0 0 3px rgba(44, 119, 223, 0.2);
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: #2c77df;
+  stroke-width: 3px;
+}
+
+.react-flow__controls {
+  bottom: 20px;
+  right: 20px;
+}
+
+.react-flow__controls-button {
+  background: white;
+  border: 1px solid #e0e6ee;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.react-flow__controls-button:hover {
+  background: #2c77df;
+  color: white;
+}
+
+.react-flow__minimap {
+  bottom: 20px;
+  left: 20px;
+  background: white;
+  border: 1px solid #e0e6ee;
+  border-radius: 8px;
+}
+
+.react-flow__background {
+  background-color: #f6f9fc;
+}
+
+/* Selection box */
+.react-flow__selection {
+  background: rgba(44, 119, 223, 0.1);
+  border: 2px dashed #2c77df;
+}
+
+/* Connection line (while dragging) - Temporary bezier curve */
+.react-flow__connection-path {
+  stroke: #2c77df;
+  stroke-width: 2;
+  stroke-dasharray: 5, 3;
+  fill: none;
+  pointer-events: none;
+}
+
+/* Handles (Ports) */
+.react-flow__handle {
+  width: 12px;
+  height: 12px;
+  background: white;
+  border: 2px solid #2c77df;
+  transition: all 0.2s;
+}
+
+.react-flow__handle:hover {
+  background: #2c77df;
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(44, 119, 223, 0.5);
+}
+
+/* Port highlighting during connection drag */
+.react-flow__handle-connecting {
+  background: #2c77df;
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(44, 119, 223, 0.5);
+  animation: portPulse 1s infinite;
+}
+
+.react-flow__handle-valid {
+  background: #2c77df;
+  transform: scale(1.3);
+  box-shadow: 0 0 8px rgba(44, 119, 223, 0.5);
+}
+
+/* Port pulse animation during connection drag */
+@keyframes portPulse {
+  0% {
+    box-shadow: 0 0 8px rgba(44, 119, 223, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(44, 119, 223, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 8px rgba(44, 119, 223, 0.5);
+  }
+}
+
+/* Cursor during connection drag */
+.react-flow__pane.dragging {
+  cursor: grabbing !important;
+}

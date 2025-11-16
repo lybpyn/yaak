@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { NodeLibraryCard } from './NodeLibraryCard';
 import { PlainInput } from '../core/PlainInput';
-import classNames from 'classnames';
+import { cn } from '../../lib/cn';
 
 interface NodeTypeDefinition {
   category: 'trigger' | 'action' | 'logic';
@@ -114,13 +114,33 @@ interface CategoryState {
   logic: boolean;
 }
 
+const STORAGE_KEY = 'yaak-workflow-node-library-collapsed';
+
 export function NodeLibrarySidebar() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [collapsed, setCollapsed] = useState<CategoryState>({
-    triggers: false,
-    actions: false,
-    logic: false,
+  const [activeTab, setActiveTab] = useState<'nodes' | 'my-nodes'>('nodes');
+
+  // Load collapsed state from localStorage
+  const [collapsed, setCollapsed] = useState<CategoryState>(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error('Failed to load collapsed state:', error);
+    }
+    return { triggers: false, actions: false, logic: false };
   });
+
+  // Persist collapsed state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(collapsed));
+    } catch (error) {
+      console.error('Failed to save collapsed state:', error);
+    }
+  }, [collapsed]);
 
   const filteredNodes = useMemo(() => {
     if (!searchQuery) return NODE_TYPE_DEFINITIONS;
@@ -143,31 +163,69 @@ export function NodeLibrarySidebar() {
   };
 
   return (
-    <div className="w-64 bg-surface border-r border-border flex flex-col h-full">
-      {/* Header */}
-      <div className="p-4 border-b border-border">
-        <h3 className="font-semibold text-sm mb-3">Node Library</h3>
+    <div className="w-[280px] bg-[#f0f4f9] border-r border-border flex flex-col h-full">
+      {/* Tabs */}
+      <div className="border-b border-border flex">
+        <button
+          onClick={() => setActiveTab('nodes')}
+          className={cn(
+            'flex-1 px-4 py-3 text-sm font-medium transition-colors relative',
+            activeTab === 'nodes' && 'text-primary',
+            activeTab !== 'nodes' && 'text-text-subtle hover:text-text'
+          )}
+        >
+          Nodes
+          {activeTab === 'nodes' && (
+            <div className="absolute bottom-0 left-[20%] w-[60%] h-[3px] bg-primary rounded-t transition-all duration-200" />
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('my-nodes')}
+          className={cn(
+            'flex-1 px-4 py-3 text-sm font-medium transition-colors relative',
+            activeTab === 'my-nodes' && 'text-primary',
+            activeTab !== 'my-nodes' && 'text-text-subtle hover:text-text'
+          )}
+        >
+          My Nodes
+          {activeTab === 'my-nodes' && (
+            <div className="absolute bottom-0 left-[20%] w-[60%] h-[3px] bg-primary rounded-t transition-all duration-200" />
+          )}
+        </button>
+      </div>
+
+      {/* Search */}
+      <div className="p-4">
         <PlainInput
           placeholder="Search nodes..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full"
+          className={cn(
+            'w-full',
+            'focus:ring-2 focus:ring-primary/20 focus:border-primary'
+          )}
         />
       </div>
 
       {/* Categories */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-4">
         {/* Triggers */}
         {triggerNodes.length > 0 && (
           <div>
             <button
               onClick={() => toggleCategory('triggers')}
-              className="flex items-center justify-between w-full mb-2 text-sm font-semibold hover:text-text"
+              className={cn(
+                'flex items-center justify-between w-full mb-3',
+                'text-sm font-semibold text-text hover:text-primary',
+                'transition-colors'
+              )}
             >
-              <span>Triggers</span>
-              <span className={classNames('transition-transform', {
-                'rotate-180': !collapsed.triggers,
-              })}>
+              <span>Triggers ({triggerNodes.length})</span>
+              <span
+                className={cn('transition-transform duration-200', {
+                  'rotate-180': !collapsed.triggers,
+                })}
+              >
                 ▼
               </span>
             </button>
@@ -194,12 +252,18 @@ export function NodeLibrarySidebar() {
           <div>
             <button
               onClick={() => toggleCategory('actions')}
-              className="flex items-center justify-between w-full mb-2 text-sm font-semibold hover:text-text"
+              className={cn(
+                'flex items-center justify-between w-full mb-3',
+                'text-sm font-semibold text-text hover:text-primary',
+                'transition-colors'
+              )}
             >
-              <span>Actions</span>
-              <span className={classNames('transition-transform', {
-                'rotate-180': !collapsed.actions,
-              })}>
+              <span>Actions ({actionNodes.length})</span>
+              <span
+                className={cn('transition-transform duration-200', {
+                  'rotate-180': !collapsed.actions,
+                })}
+              >
                 ▼
               </span>
             </button>
@@ -226,12 +290,18 @@ export function NodeLibrarySidebar() {
           <div>
             <button
               onClick={() => toggleCategory('logic')}
-              className="flex items-center justify-between w-full mb-2 text-sm font-semibold hover:text-text"
+              className={cn(
+                'flex items-center justify-between w-full mb-3',
+                'text-sm font-semibold text-text hover:text-primary',
+                'transition-colors'
+              )}
             >
-              <span>Logic Control</span>
-              <span className={classNames('transition-transform', {
-                'rotate-180': !collapsed.logic,
-              })}>
+              <span>Logic Control ({logicNodes.length})</span>
+              <span
+                className={cn('transition-transform duration-200', {
+                  'rotate-180': !collapsed.logic,
+                })}
+              >
                 ▼
               </span>
             </button>
@@ -254,8 +324,10 @@ export function NodeLibrarySidebar() {
         )}
 
         {filteredNodes.length === 0 && (
-          <div className="text-center text-text-subtle text-sm py-8">
-            No nodes match your search
+          <div className="flex flex-col items-center justify-center text-center text-text-subtle py-12">
+            <div className="text-4xl mb-3">🔍</div>
+            <p className="text-sm font-medium">No nodes found</p>
+            <p className="text-xs mt-1">Try a different search term</p>
           </div>
         )}
       </div>

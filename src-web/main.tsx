@@ -1,4 +1,5 @@
 import './main.css';
+import './components/Workflows/reactflow-theme.css';
 import { RouterProvider } from '@tanstack/react-router';
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { type } from '@tauri-apps/plugin-os';

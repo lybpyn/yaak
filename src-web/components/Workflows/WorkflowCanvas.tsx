@@ -14,6 +14,7 @@ import ReactFlow, {
   OnEdgesChange,
   OnConnect,
   Panel,
+  ConnectionLineType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { useWorkflowCanvas } from '../../hooks/useWorkflowCanvas';
@@ -108,6 +109,12 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
       }
     });
   }, [onEdgesChange]);
+
+  // Validate connection (prevent self-connections)
+  const isValidConnection = useCallback((connection: Connection) => {
+    // Prevent connecting a node to itself
+    return connection.source !== connection.target;
+  }, []);
 
   // Handle new edge connection
   const handleConnect: OnConnect = useCallback((connection: Connection) => {
@@ -326,6 +333,13 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         onMove={handleMove}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
+        isValidConnection={isValidConnection}
+        connectionLineType={ConnectionLineType.Bezier}
+        connectionLineStyle={{
+          stroke: '#2c77df',
+          strokeWidth: 2,
+          strokeDasharray: '5,3',
+        }}
         fitView
         snapToGrid
         snapGrid={[20, 20]}

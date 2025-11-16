@@ -40,8 +40,29 @@ export const canvasNodeExecutionsAtom = createOrderedModelAtom('workflow_node_ex
 
 // UI state atoms
 export const selectedNodeIdAtom = atom<string | null>(null);
+export const selectedNodeIdsAtom = atom<string[]>([]);
 export const selectedEdgeIdAtom = atom<string | null>(null);
 export const isExecutingAtom = atom<boolean>(false);
+
+// Canvas viewport state
+export interface CanvasViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+export const canvasViewportAtom = atom<CanvasViewport>({ x: 0, y: 0, zoom: 1 });
+
+// Context menu state
+export interface ContextMenuState {
+  type: 'node' | 'edge' | 'canvas' | null;
+  position: { x: number; y: number };
+  data?: any;
+}
+export const contextMenuAtom = atom<ContextMenuState>({
+  type: null,
+  position: { x: 0, y: 0 },
+  data: null,
+});
 
 // Node execution status map
 export interface NodeExecutionStatus {
@@ -62,9 +83,17 @@ export const redoStackAtom = atom<CanvasAction[]>([]);
 
 // Derived atoms
 export const selectedNodeAtom = atom((get) => {
-  const id = get(selectedNodeIdAtom);
+  const multiSelectIds = get(selectedNodeIdsAtom);
+  const singleSelectId = get(selectedNodeIdAtom);
   const nodes = get(canvasNodesAtom);
-  return id ? nodes.find((n: any) => n.id === id) ?? null : null;
+
+  // Prefer multi-select if available (return first selected)
+  if (multiSelectIds.length > 0) {
+    return nodes.find((n: any) => n.id === multiSelectIds[0]) ?? null;
+  }
+
+  // Fall back to single select
+  return singleSelectId ? nodes.find((n: any) => n.id === singleSelectId) ?? null : null;
 });
 
 export const selectedEdgeAtom = atom((get) => {

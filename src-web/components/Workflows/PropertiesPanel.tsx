@@ -1,9 +1,15 @@
 import { useAtomValue } from 'jotai';
 import { selectedNodeAtom, selectedNodeIdAtom } from '@yaakapp-internal/models/guest-js/atoms';
-import { PlainInput } from '../core/PlainInput';
 import { Button } from '../core/Button';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { patchModel } from '@yaakapp-internal/models';
+import { TextField } from './FormFields/TextField';
+import { TextAreaField } from './FormFields/TextAreaField';
+import { SelectField } from './FormFields/SelectField';
+import { NumberField } from './FormFields/NumberField';
+import { CheckboxField } from './FormFields/CheckboxField';
+import { CodeField } from './FormFields/CodeField';
+import { validateNodeConfig, type ValidationError } from '../../lib/workflow-validation';
 
 export function PropertiesPanel() {
   const selectedNodeId = useAtomValue(selectedNodeIdAtom);
@@ -12,6 +18,7 @@ export function PropertiesPanel() {
   const [description, setDescription] = useState('');
   const [config, setConfig] = useState<Record<string, any>>({});
   const [hasChanges, setHasChanges] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -19,6 +26,7 @@ export function PropertiesPanel() {
       setDescription(selectedNode.description || '');
       setConfig(selectedNode.config || {});
       setHasChanges(false);
+      setValidationErrors([]);
     }
   }, [selectedNode]);
 
@@ -35,6 +43,13 @@ export function PropertiesPanel() {
   }
 
   const handleSave = async () => {
+    const validation = validateNodeConfig(selectedNode.nodeSubtype, name, config);
+    setValidationErrors(validation.errors);
+
+    if (!validation.valid) {
+      return; // Don't save if validation fails
+    }
+
     await patchModel(selectedNodeId, {
       name,
       description: description || null,
@@ -46,7 +61,21 @@ export function PropertiesPanel() {
   const updateConfig = (key: string, value: any) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
     setHasChanges(true);
+    // Clear validation error for this field when user edits it
+    setValidationErrors((prev) => prev.filter((e) => e.field !== key));
   };
+
+  // Helper to get validation error for a specific field
+  const getFieldError = (fieldName: string): string | undefined => {
+    const error = validationErrors.find((e) => e.field === fieldName);
+    return error?.message;
+  };
+
+  // Check if form is valid (for disabling save button)
+  const isFormValid = useMemo(() => {
+    const validation = validateNodeConfig(selectedNode.nodeSubtype, name, config);
+    return validation.valid;
+  }, [selectedNode.nodeSubtype, name, config]);
 
   const getNodeIcon = (subtype: string) => {
     const icons: Record<string, string> = {
@@ -70,94 +99,80 @@ export function PropertiesPanel() {
       case 'http_request':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Method</label>
-              <select
-                value={config.method || 'GET'}
-                onChange={(e) => updateConfig('method', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded"
-              >
-                <option>GET</option>
-                <option>POST</option>
-                <option>PUT</option>
-                <option>PATCH</option>
-                <option>DELETE</option>
-                <option>HEAD</option>
-                <option>OPTIONS</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">URL</label>
-              <PlainInput
-                value={config.url || ''}
-                onChange={(e) => updateConfig('url', e.target.value)}
-                placeholder="https://api.example.com/endpoint"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Body</label>
-              <textarea
-                value={config.body || ''}
-                onChange={(e) => updateConfig('body', e.target.value)}
-                placeholder='{"key": "value"}'
-                className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm"
-                rows={6}
-              />
-            </div>
+            <SelectField
+              label="Method"
+              value={config.method || 'GET'}
+              onChange={(value) => updateConfig('method', value)}
+              options={[
+                { value: 'GET', label: 'GET' },
+                { value: 'POST', label: 'POST' },
+                { value: 'PUT', label: 'PUT' },
+                { value: 'PATCH', label: 'PATCH' },
+                { value: 'DELETE', label: 'DELETE' },
+                { value: 'HEAD', label: 'HEAD' },
+                { value: 'OPTIONS', label: 'OPTIONS' },
+              ]}
+            />
+            <TextField
+              label="URL"
+              value={config.url || ''}
+              onChange={(value) => updateConfig('url', value)}
+              placeholder="https://api.example.com/endpoint"
+              required
+              error={getFieldError('URL')}
+            />
+            <CodeField
+              label="Body"
+              value={config.body || ''}
+              onChange={(value) => updateConfig('body', value)}
+              language="json"
+              hint="Request body in JSON format"
+              error={getFieldError('Body')}
+            />
           </>
         );
 
       case 'conditional':
         return (
-          <div>
-            <label className="block text-sm font-medium mb-1">Condition</label>
-            <textarea
-              value={config.condition || ''}
-              onChange={(e) => updateConfig('condition', e.target.value)}
-              placeholder='{{step[0].response.status}} == 200'
-              className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm"
-              rows={4}
-            />
-            <p className="text-xs text-text-subtle mt-1">
-              Use template syntax to reference previous steps
-            </p>
-          </div>
+          <CodeField
+            label="Condition"
+            value={config.condition || ''}
+            onChange={(value) => updateConfig('condition', value)}
+            language="javascript"
+            hint="Use template syntax to reference previous steps (e.g., {{step[0].response.status}} == 200)"
+            height="120px"
+          />
         );
 
       case 'loop':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Loop Type</label>
-              <select
-                value={config.loop_type || 'count'}
-                onChange={(e) => updateConfig('loop_type', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded"
-              >
-                <option value="count">Fixed Count</option>
-                <option value="array">Iterate Array</option>
-              </select>
-            </div>
-            {config.loop_type === 'count' ? (
-              <div>
-                <label className="block text-sm font-medium mb-1">Count</label>
-                <PlainInput
-                  type="number"
-                  value={config.count || 5}
-                  onChange={(e) => updateConfig('count', parseInt(e.target.value))}
-                  min={1}
-                  max={1000}
-                />
-              </div>
+            <SelectField
+              label="Loop Type"
+              value={config.loop_type || 'count'}
+              onChange={(value) => updateConfig('loop_type', value)}
+              options={[
+                { value: 'count', label: 'Fixed Count' },
+                { value: 'array', label: 'Iterate Array' },
+              ]}
+            />
+            {config.loop_type === 'count' || !config.loop_type ? (
+              <NumberField
+                label="Count"
+                value={config.count || 5}
+                onChange={(value) => updateConfig('count', value === '' ? 1 : value)}
+                min={1}
+                max={1000}
+                hint="Number of iterations"
+              />
             ) : (
-              <div>
-                <label className="block text-sm font-medium mb-1">Array Variable</label>
-                <PlainInput
-                  value={config.array_variable || ''}
-                  onChange={(e) => updateConfig('array_variable', e.target.value)}
-                  placeholder='{{step[0].response.body.items}}'
-                />
-              </div>
+              <TextField
+                label="Array Variable"
+                value={config.array_variable || ''}
+                onChange={(value) => updateConfig('array_variable', value)}
+                placeholder="{{step[0].response.body.items}}"
+                hint="Template variable containing array to iterate"
+              />
             )}
           </>
         );
@@ -165,173 +180,150 @@ export function PropertiesPanel() {
       case 'parallel':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Branch Count</label>
-              <PlainInput
-                type="number"
-                value={config.branch_count || 2}
-                onChange={(e) => updateConfig('branch_count', parseInt(e.target.value))}
-                min={2}
-                max={10}
-              />
-            </div>
-            <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={config.fail_fast ?? true}
-                  onChange={(e) => updateConfig('fail_fast', e.target.checked)}
-                />
-                <span className="text-sm">Fail-fast mode</span>
-              </label>
-              <p className="text-xs text-text-subtle mt-1">
-                Stop execution if any branch fails
-              </p>
-            </div>
+            <NumberField
+              label="Branch Count"
+              value={config.branch_count || 2}
+              onChange={(value) => updateConfig('branch_count', value === '' ? 2 : value)}
+              min={2}
+              max={10}
+              hint="Number of parallel execution branches"
+            />
+            <CheckboxField
+              label="Fail-fast mode"
+              checked={config.fail_fast ?? true}
+              onChange={(checked) => updateConfig('fail_fast', checked)}
+              hint="Stop execution if any branch fails"
+            />
           </>
         );
 
       case 'email':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">To</label>
-              <PlainInput
-                value={config.to || ''}
-                onChange={(e) => updateConfig('to', e.target.value)}
-                placeholder="recipient@example.com"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Subject</label>
-              <PlainInput
-                value={config.subject || ''}
-                onChange={(e) => updateConfig('subject', e.target.value)}
-                placeholder="Email subject"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Body</label>
-              <textarea
-                value={config.body || ''}
-                onChange={(e) => updateConfig('body', e.target.value)}
-                placeholder="Email body"
-                className="w-full px-3 py-2 bg-surface border border-border rounded text-sm"
-                rows={6}
-              />
-            </div>
+            <TextField
+              label="To"
+              value={config.to || ''}
+              onChange={(value) => updateConfig('to', value)}
+              placeholder="recipient@example.com"
+              required
+              error={getFieldError('To')}
+            />
+            <TextField
+              label="Subject"
+              value={config.subject || ''}
+              onChange={(value) => updateConfig('subject', value)}
+              placeholder="Email subject"
+              required
+              error={getFieldError('Subject')}
+            />
+            <TextAreaField
+              label="Body"
+              value={config.body || ''}
+              onChange={(value) => updateConfig('body', value)}
+              placeholder="Email body"
+              rows={6}
+            />
           </>
         );
 
       case 'database':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Connection String</label>
-              <PlainInput
-                value={config.connection_string || ''}
-                onChange={(e) => updateConfig('connection_string', e.target.value)}
-                placeholder='{{env.DATABASE_URL}}'
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">SQL Query</label>
-              <textarea
-                value={config.query || ''}
-                onChange={(e) => updateConfig('query', e.target.value)}
-                placeholder="SELECT * FROM users WHERE id = ?"
-                className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm"
-                rows={6}
-              />
-            </div>
+            <TextField
+              label="Connection String"
+              value={config.connection_string || ''}
+              onChange={(value) => updateConfig('connection_string', value)}
+              placeholder="{{env.DATABASE_URL}}"
+              hint="Database connection string or template variable"
+              required
+              error={getFieldError('Connection String')}
+            />
+            <CodeField
+              label="SQL Query"
+              value={config.query || ''}
+              onChange={(value) => updateConfig('query', value)}
+              language="text"
+              hint="SQL query to execute"
+            />
           </>
         );
 
       case 'websocket':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">WebSocket URL</label>
-              <PlainInput
-                value={config.url || ''}
-                onChange={(e) => updateConfig('url', e.target.value)}
-                placeholder="wss://example.com/ws"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Messages to Send</label>
-              <textarea
-                value={config.messages || ''}
-                onChange={(e) => updateConfig('messages', e.target.value)}
-                placeholder='["message1", "message2"]'
-                className="w-full px-3 py-2 bg-surface border border-border rounded font-mono text-sm"
-                rows={4}
-              />
-            </div>
+            <TextField
+              label="WebSocket URL"
+              value={config.url || ''}
+              onChange={(value) => updateConfig('url', value)}
+              placeholder="wss://example.com/ws"
+              required
+              error={getFieldError('WebSocket URL')}
+            />
+            <CodeField
+              label="Messages to Send"
+              value={config.messages || ''}
+              onChange={(value) => updateConfig('messages', value)}
+              language="json"
+              hint="JSON array of messages to send"
+              height="120px"
+              error={getFieldError('Messages')}
+            />
           </>
         );
 
       case 'webhook_trigger':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Webhook URL</label>
-              <PlainInput
-                value={config.url || ''}
-                onChange={(e) => updateConfig('url', e.target.value)}
-                placeholder="Auto-generated"
-                disabled
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Allowed Methods</label>
-              <select
-                value={config.method || 'POST'}
-                onChange={(e) => updateConfig('method', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded"
-              >
-                <option>GET</option>
-                <option>POST</option>
-                <option>PUT</option>
-                <option>DELETE</option>
-              </select>
-            </div>
+            <TextField
+              label="Webhook URL"
+              value={config.url || ''}
+              onChange={(value) => updateConfig('url', value)}
+              placeholder="Auto-generated"
+              disabled
+              hint="This URL is auto-generated when webhook is active"
+            />
+            <SelectField
+              label="Allowed Methods"
+              value={config.method || 'POST'}
+              onChange={(value) => updateConfig('method', value)}
+              options={[
+                { value: 'GET', label: 'GET' },
+                { value: 'POST', label: 'POST' },
+                { value: 'PUT', label: 'PUT' },
+                { value: 'DELETE', label: 'DELETE' },
+              ]}
+            />
           </>
         );
 
       case 'timer_trigger':
         return (
           <>
-            <div>
-              <label className="block text-sm font-medium mb-1">Schedule Type</label>
-              <select
-                value={config.schedule_type || 'interval'}
-                onChange={(e) => updateConfig('schedule_type', e.target.value)}
-                className="w-full px-3 py-2 bg-surface border border-border rounded"
-              >
-                <option value="interval">Interval</option>
-                <option value="cron">Cron Expression</option>
-              </select>
-            </div>
-            {config.schedule_type === 'interval' ? (
-              <div>
-                <label className="block text-sm font-medium mb-1">Interval (minutes)</label>
-                <PlainInput
-                  type="number"
-                  value={config.interval_minutes || 60}
-                  onChange={(e) => updateConfig('interval_minutes', parseInt(e.target.value))}
-                  min={1}
-                />
-              </div>
+            <SelectField
+              label="Schedule Type"
+              value={config.schedule_type || 'interval'}
+              onChange={(value) => updateConfig('schedule_type', value)}
+              options={[
+                { value: 'interval', label: 'Interval' },
+                { value: 'cron', label: 'Cron Expression' },
+              ]}
+            />
+            {config.schedule_type === 'interval' || !config.schedule_type ? (
+              <NumberField
+                label="Interval (minutes)"
+                value={config.interval_minutes || 60}
+                onChange={(value) => updateConfig('interval_minutes', value === '' ? 1 : value)}
+                min={1}
+                hint="Run workflow every N minutes"
+              />
             ) : (
-              <div>
-                <label className="block text-sm font-medium mb-1">Cron Expression</label>
-                <PlainInput
-                  value={config.cron_expression || ''}
-                  onChange={(e) => updateConfig('cron_expression', e.target.value)}
-                  placeholder="0 0 * * *"
-                />
-              </div>
+              <TextField
+                label="Cron Expression"
+                value={config.cron_expression || ''}
+                onChange={(value) => updateConfig('cron_expression', value)}
+                placeholder="0 0 * * *"
+                hint="Standard cron syntax (minute hour day month weekday)"
+              />
             )}
           </>
         );
@@ -360,31 +352,29 @@ export function PropertiesPanel() {
 
       {/* Form */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">Node Name</label>
-          <PlainInput
-            value={name}
-            onChange={(e) => {
-              setName(e.target.value);
-              setHasChanges(true);
-            }}
-            placeholder="Node name"
-          />
-        </div>
+        <TextField
+          label="Node Name"
+          value={name}
+          onChange={(value) => {
+            setName(value);
+            setHasChanges(true);
+            setValidationErrors((prev) => prev.filter((e) => e.field !== 'Node Name'));
+          }}
+          placeholder="Node name"
+          required
+          error={getFieldError('Node Name')}
+        />
 
-        <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
-          <textarea
-            value={description}
-            onChange={(e) => {
-              setDescription(e.target.value);
-              setHasChanges(true);
-            }}
-            placeholder="Optional description"
-            className="w-full px-3 py-2 bg-surface border border-border rounded text-sm"
-            rows={2}
-          />
-        </div>
+        <TextAreaField
+          label="Description"
+          value={description}
+          onChange={(value) => {
+            setDescription(value);
+            setHasChanges(true);
+          }}
+          placeholder="Optional description"
+          rows={2}
+        />
 
         <div className="border-t border-border pt-4">
           <h4 className="font-medium text-sm mb-3">Configuration</h4>

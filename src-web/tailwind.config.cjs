@@ -28,9 +28,21 @@ module.exports = {
           '50%, 99%': { '--tw-ring-color': 'transparent' },
           '100%': { '--tw-ring-color': 'var(--primary)' },
         },
+        pulseError: {
+          '0%': { boxShadow: '0 0 0 0 rgba(247, 90, 90, 0.5)' },
+          '50%': { boxShadow: '0 0 0 8px rgba(247, 90, 90, 0)' },
+          '100%': { boxShadow: '0 0 0 0 rgba(247, 90, 90, 0)' },
+        },
+        portPulse: {
+          '0%': { boxShadow: '0 0 8px rgba(44, 119, 223, 0.5)' },
+          '50%': { boxShadow: '0 0 12px rgba(44, 119, 223, 0.8)' },
+          '100%': { boxShadow: '0 0 8px rgba(44, 119, 223, 0.5)' },
+        },
       },
       animation: {
         blinkRing: 'blinkRing 150ms step-start 400ms infinite',
+        'pulse-error': 'pulseError 1.5s infinite',
+        'port-pulse': 'portPulse 1s infinite',
       },
       opacity: {
         disabled: '0.3',
@@ -105,6 +117,9 @@ module.exports = {
     boxShadow: {
       DEFAULT: '0 1px 3px 0 var(--shadow)',
       lg: '0 10px 15px -3px var(--shadow)',
+      'node': '0 4px 20px rgba(0, 0, 0, 0.08)',
+      'node-hover': '0 12px 25px rgba(44, 119, 223, 0.2)',
+      'context-menu': '0 6px 20px rgba(0, 0, 0, 0.15)',
     },
     colors: {
       transparent: 'transparent',
@@ -134,6 +149,22 @@ module.exports = {
       info: 'var(--info)',
       notice: 'var(--notice)',
       warning: 'var(--warning)',
+
+      // n8n-inspired workflow UI colors
+      'n8n-primary': '#2c77df',
+      'n8n-primary-light': '#e6f0ff',
+      'n8n-dark': '#1e2b3c',
+      'n8n-canvas': '#f6f9fc',
+      'n8n-sidebar': '#f0f4f9',
+      'n8n-panel': '#f8fafd',
+      'n8n-success': '#38b153',
+      'n8n-warning': '#ff9f29',
+      'n8n-error': '#f75a5a',
+
+      // Node type colors
+      'node-trigger': '#10b981',
+      'node-action': '#8b5cf6',
+      'node-logic': '#f59e0b',
     },
   },
   plugins: [
