@@ -595,11 +595,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 6, Task 17
 - **Description**: Wire undo/redo hook to canvas operations
 - **Acceptance Criteria**:
-  - [ ] recordAction() called on: createNode, deleteNode, moveNode, createEdge, deleteEdge
-  - [ ] Each action has undo and redo functions
-  - [ ] Undo/redo buttons in toolbar trigger actions
-  - [ ] Keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z) work
-  - [ ] Stack size limited to 50
+  - [x] recordAction() called on: createNode, deleteNode, moveNode, createEdge, deleteEdge
+  - [x] Each action has undo and redo functions
+  - [x] Undo/redo buttons in toolbar trigger actions
+  - [x] Keyboard shortcuts (Ctrl+Z, Ctrl+Shift+Z) work
+  - [x] Stack size limited to 50
 
 #### Task 39: Integrate Multi-Select into Canvas
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -608,11 +608,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 8, Task 17
 - **Description**: Enable multi-select with Ctrl+Click and box selection
 - **Acceptance Criteria**:
-  - [ ] ReactFlow props: multiSelectionKeyCode='Control', selectionOnDrag=true, selectionMode='partial'
-  - [ ] onSelectionChange updates selectedNodeIdsAtom
-  - [ ] Toolbar shows selection count
-  - [ ] Delete key deletes all selected nodes
-  - [ ] Properties panel shows "Multiple nodes selected" state
+  - [x] ReactFlow props: multiSelectionKeyCode='Control', selectionOnDrag=true, selectionMode='partial'
+  - [x] onSelectionChange updates selectedNodeIdsAtom
+  - [x] Toolbar shows selection count
+  - [x] Delete key deletes all selected nodes
+  - [x] Properties panel shows "Multiple nodes selected" state
 
 #### Task 40: Integrate Auto-Layout into Canvas
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -621,11 +621,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 10, Task 17
 - **Description**: Wire auto-layout button to algorithm
 - **Acceptance Criteria**:
-  - [ ] Toolbar auto-layout button calls useAutoLayout hook
-  - [ ] Nodes animate to new positions (300ms transition)
-  - [ ] Operation recorded in undo stack
-  - [ ] Loading state during layout calculation
-  - [ ] Works with empty workflow (no-op)
+  - [x] Toolbar auto-layout button calls useAutoLayout hook
+  - [x] Nodes animate to new positions (300ms transition)
+  - [x] Operation recorded in undo stack
+  - [x] Loading state during layout calculation
+  - [x] Works with empty workflow (no-op)
 
 #### Task 41: Integrate Alignment Tools into Canvas
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -634,10 +634,10 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 11, Task 17
 - **Description**: Wire alignment buttons to functions
 - **Acceptance Criteria**:
-  - [ ] Alignment buttons enabled when 2+ nodes selected
-  - [ ] Each button calls correct alignment function
-  - [ ] Nodes animate to aligned positions
-  - [ ] Operations recorded in undo stack
+  - [x] Alignment buttons enabled when 2+ nodes selected
+  - [x] Each button calls correct alignment function
+  - [x] Nodes animate to aligned positions
+  - [x] Operations recorded in undo stack
 
 #### Task 42: Add Enhanced Keyboard Shortcuts
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -651,9 +651,9 @@ This document provides a comprehensive, ordered task list for implementing the W
   - [x] Ctrl+Z: Undo
   - [x] Ctrl+Shift+Z: Redo
   - [x] Ctrl+0: Reset zoom
-  - [ ] Ctrl+A: Select all
+  - [x] Ctrl+A: Select all
   - [x] F: Fit view
-  - [ ] Ctrl+L: Auto-layout
+  - [x] Ctrl+L: Auto-layout
   - [x] All shortcuts prevent default browser behavior
 
 ---
@@ -698,15 +698,15 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 43, Task 13
 - **Description**: Add right-click menu to nodes
 - **Acceptance Criteria**:
-  - [ ] Right-click node opens menu
-  - [ ] Menu items: Copy, Delete, Execute, Rename, Disable, History
-  - [ ] Copy node to clipboard (future: just log for now)
-  - [ ] Delete calls deleteNode()
-  - [ ] Execute runs single node (future: just log)
-  - [ ] Rename prompts for new name, updates database
-  - [ ] Disable toggles node.disabled
-  - [ ] History shows execution history (future: just log)
-  - [ ] Menu positioned at cursor
+  - [x] Right-click node opens menu
+  - [x] Menu items: Copy, Delete, Execute, Rename, Disable, History
+  - [x] Copy node to clipboard (future: just log for now)
+  - [x] Delete calls deleteNode()
+  - [x] Execute runs single node (future: just log)
+  - [x] Rename prompts for new name, updates database
+  - [x] Disable toggles node.disabled
+  - [x] History shows execution history (future: just log)
+  - [x] Menu positioned at cursor
 
 #### Task 46: Wire Edge Context Menu
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -715,15 +715,15 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 43, Task 13
 - **Description**: Add right-click menu to edges with all n8n features
 - **Acceptance Criteria**:
-  - [ ] Right-click edge opens menu
-  - [ ] Menu items: Delete Connection, Select Output Branch, Add Conditional Jump
-  - [ ] Delete Connection calls deleteEdge() and removes from UI
-  - [ ] Select Output Branch shows branch selector (V2: log for now)
-  - [ ] Add Conditional Jump opens condition editor (V2: log for now)
-  - [ ] Menu positioned at cursor (click position)
-  - [ ] Edge visually selected when menu open
-  - [ ] Keyboard shortcut shown: "Del" for Delete Connection
-  - [ ] Keyboard shortcut shown: "Ctrl+B" for Select Branch
+  - [x] Right-click edge opens menu
+  - [x] Menu items: Delete Connection, Select Output Branch, Add Conditional Jump
+  - [x] Delete Connection calls deleteEdge() and removes from UI
+  - [x] Select Output Branch shows branch selector (V2: log for now)
+  - [x] Add Conditional Jump opens condition editor (V2: log for now)
+  - [x] Menu positioned at cursor (click position)
+  - [x] Edge visually selected when menu open
+  - [x] Keyboard shortcut shown: "Del" for Delete Connection
+  - [x] Keyboard shortcut shown: "Ctrl+B" for Select Branch
 
 #### Task 47: Wire Canvas Context Menu
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -732,13 +732,13 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 43, Task 13
 - **Description**: Add right-click menu to empty canvas
 - **Acceptance Criteria**:
-  - [ ] Right-click empty canvas opens menu
-  - [ ] Menu items: Paste, Create, Align Left, Align Right, Distribute, Run All
-  - [ ] Paste pastes clipboard nodes (future: just log)
-  - [ ] Create node (future: show node picker)
-  - [ ] Alignment items (if 2+ selected)
-  - [ ] Run All executes workflow
-  - [ ] Menu positioned at cursor
+  - [x] Right-click empty canvas opens menu
+  - [x] Menu items: Paste, Create, Align Left, Align Right, Distribute, Run All
+  - [x] Paste pastes clipboard nodes (future: just log)
+  - [x] Create node (future: show node picker)
+  - [x] Alignment items (if 2+ selected)
+  - [x] Run All executes workflow
+  - [x] Menu positioned at cursor
 
 ---
 
