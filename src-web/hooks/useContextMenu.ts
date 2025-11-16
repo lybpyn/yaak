@@ -3,7 +3,25 @@ import { useCallback } from 'react';
 import { contextMenuAtom } from '@yaakapp-internal/models';
 
 /**
- * Hook for managing context menu state
+ * Hook for managing context menu state in the workflow canvas
+ *
+ * Provides functions to open context menus for nodes, edges, and canvas areas,
+ * as well as close the current menu. Uses Jotai atom for global state.
+ *
+ * @returns Object containing menu state and control functions
+ *
+ * @example
+ * ```tsx
+ * const { contextMenu, openNodeMenu, closeMenu, isOpen } = useContextMenu();
+ *
+ * // Open menu on node right-click
+ * const handleNodeContextMenu = (event: React.MouseEvent, node: Node) => {
+ *   openNodeMenu(event, node);
+ * };
+ *
+ * // Render menu if open
+ * {isOpen && <ContextMenu items={getItems()} position={contextMenu.position} onClose={closeMenu} />}
+ * ```
  */
 export function useContextMenu() {
   const [contextMenu, setContextMenu] = useAtom(contextMenuAtom);

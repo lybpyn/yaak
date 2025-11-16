@@ -1010,10 +1010,10 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: All previous tasks
 - **Description**: Document all exported functions and components
 - **Acceptance Criteria**:
-  - [ ] All components have JSDoc with description, params, returns
-  - [ ] All hooks have JSDoc with usage examples
-  - [ ] All complex functions have inline comments
-  - [ ] All types/interfaces documented
+  - [x] All components have JSDoc with description, params, returns
+  - [x] All hooks have JSDoc with usage examples
+  - [x] All complex functions have inline comments
+  - [x] All types/interfaces documented
   - [ ] No auto-generated "TODO" comments remain
 
 #### Task 67: Create Component README
@@ -1023,12 +1023,12 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 66
 - **Description**: Document component architecture and usage
 - **Acceptance Criteria**:
-  - [ ] Overview of workflow UI architecture
-  - [ ] Component hierarchy diagram
-  - [ ] Props documentation for major components
-  - [ ] Hook usage examples
-  - [ ] Common patterns and gotchas
-  - [ ] Link to feature specs
+  - [x] Overview of workflow UI architecture
+  - [x] Component hierarchy diagram
+  - [x] Props documentation for major components
+  - [x] Hook usage examples
+  - [x] Common patterns and gotchas
+  - [x] Link to feature specs
 
 ### 10.2 User Documentation
 
@@ -1039,13 +1039,13 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 62
 - **Description**: End-user documentation for new UI
 - **Acceptance Criteria**:
-  - [ ] Introduction to workflow editor
-  - [ ] Annotated screenshots of UI sections
-  - [ ] Step-by-step tutorials (create workflow, use auto-layout, etc.)
-  - [ ] Keyboard shortcuts reference table
-  - [ ] Context menu reference
-  - [ ] Tips and tricks
-  - [ ] Troubleshooting common issues
+  - [x] Introduction to workflow editor
+  - [x] Annotated screenshots of UI sections
+  - [x] Step-by-step tutorials (create workflow, use auto-layout, etc.)
+  - [x] Keyboard shortcuts reference table
+  - [x] Context menu reference
+  - [x] Tips and tricks
+  - [x] Troubleshooting common issues
 
 #### Task 69: Create Migration Guide
 - **Files**: `specs/workflow-ui-refactor/MIGRATION.md`
@@ -1097,10 +1097,10 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: All previous tasks
 - **Description**: Build production version and verify
 - **Acceptance Criteria**:
-  - [ ] `npm run build` succeeds with no errors
-  - [ ] No TypeScript errors
-  - [ ] No ESLint warnings (or justified ignores)
-  - [ ] Bundle size reasonable (check with `npm run build` output)
+  - [x] `npm run build` succeeds with no errors
+  - [x] No TypeScript errors
+  - [x] No ESLint warnings (or justified ignores)
+  - [x] Bundle size reasonable (check with `npm run build` output)
   - [ ] Production build loads and runs correctly
   - [ ] All features work in production build
 

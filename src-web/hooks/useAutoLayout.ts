@@ -2,6 +2,12 @@ import { useCallback } from 'react';
 import dagre from 'dagre';
 import { invokeCmd } from '../lib/tauri';
 
+/**
+ * Node data structure for auto-layout
+ * @property id - Unique node identifier
+ * @property positionX - Current X position
+ * @property positionY - Current Y position
+ */
 interface Node {
   id: string;
   positionX: number;
@@ -9,6 +15,12 @@ interface Node {
   [key: string]: any;
 }
 
+/**
+ * Edge data structure for auto-layout
+ * @property id - Unique edge identifier
+ * @property sourceNodeId - Source node ID
+ * @property targetNodeId - Target node ID
+ */
 interface Edge {
   id: string;
   sourceNodeId: string;
@@ -17,7 +29,36 @@ interface Edge {
 }
 
 /**
- * Hook for auto-layout using Dagre algorithm
+ * Hook for auto-layout using Dagre directed graph layout algorithm
+ *
+ * Features:
+ * - Arranges nodes in a left-to-right hierarchy based on edges
+ * - Automatically calculates optimal positions for all nodes
+ * - Persists positions to database via Tauri commands
+ * - Handles empty workflows gracefully
+ *
+ * @returns Object containing autoLayout function
+ *
+ * @example
+ * ```typescript
+ * const { autoLayout } = useAutoLayout();
+ *
+ * // Convert ReactFlow nodes/edges to layout format
+ * const layoutNodes = nodes.map(n => ({
+ *   id: n.id,
+ *   positionX: n.position.x,
+ *   positionY: n.position.y,
+ * }));
+ *
+ * const layoutEdges = edges.map(e => ({
+ *   id: e.id,
+ *   sourceNodeId: e.source,
+ *   targetNodeId: e.target,
+ * }));
+ *
+ * // Run auto-layout
+ * await autoLayout(layoutNodes, layoutEdges);
+ * ```
  */
 export function useAutoLayout() {
   /**

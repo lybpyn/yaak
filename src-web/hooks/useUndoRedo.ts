@@ -5,7 +5,19 @@ import { undoStackAtom, redoStackAtom, type CanvasAction } from '@yaakapp-intern
 const MAX_STACK_SIZE = 50;
 
 /**
- * Action interface for undo/redo operations
+ * Interface for an undo/redo action
+ * @property type - Descriptive name of the action (e.g., 'createNode', 'moveNode')
+ * @property undo - Function to reverse the action
+ * @property redo - Function to reapply the action
+ *
+ * @example
+ * ```typescript
+ * const action: UndoRedoAction = {
+ *   type: 'moveNode',
+ *   undo: () => updateNode({ nodeId, updates: { positionX: oldX, positionY: oldY } }),
+ *   redo: () => updateNode({ nodeId, updates: { positionX: newX, positionY: newY } }),
+ * };
+ * ```
  */
 export interface UndoRedoAction {
   type: string;
@@ -14,7 +26,33 @@ export interface UndoRedoAction {
 }
 
 /**
- * Hook for managing undo/redo operations with a limited action stack
+ * Hook for managing undo/redo operations with a circular buffer action stack
+ *
+ * Features:
+ * - Stores up to 50 actions (configurable)
+ * - Supports async undo/redo operations
+ * - Automatically clears redo stack when new action is recorded
+ * - Uses Jotai atoms for global state management
+ *
+ * @returns Object containing undo/redo functions and state
+ *
+ * @example
+ * ```typescript
+ * const { undo, redo, recordAction, canUndo, canRedo } = useUndoRedo();
+ *
+ * // Record an action
+ * recordAction({
+ *   type: 'createNode',
+ *   undo: () => deleteNode(nodeId),
+ *   redo: () => createNode(nodeParams),
+ * });
+ *
+ * // Undo the last action
+ * if (canUndo) await undo();
+ *
+ * // Redo the last undone action
+ * if (canRedo) await redo();
+ * ```
  */
 export function useUndoRedo() {
   const [undoStack, setUndoStack] = useAtom(undoStackAtom);

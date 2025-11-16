@@ -2,6 +2,12 @@ import { useEffect, useRef } from 'react';
 import type { MenuItem } from './types';
 import { cn } from '../../lib/cn';
 
+/**
+ * Props for the ContextMenu component
+ * @property items - Array of menu items to display
+ * @property position - Absolute position {x, y} in viewport coordinates
+ * @property onClose - Callback when menu should close (click outside, Escape, action)
+ */
 export interface ContextMenuProps {
   items: MenuItem[];
   position: { x: number; y: number };
@@ -11,9 +17,28 @@ export interface ContextMenuProps {
 /**
  * Reusable context menu component with keyboard support
  *
- * @param items - Array of menu items to display
- * @param position - Absolute position {x, y} to render the menu
- * @param onClose - Function to call when menu should close
+ * Features:
+ * - Closes on click outside
+ * - Closes on Escape key
+ * - Closes after action executes
+ * - Supports disabled items
+ * - Shows keyboard shortcuts
+ * - Danger styling for destructive actions
+ *
+ * @param props - Component props
+ * @returns JSX element for the context menu
+ *
+ * @example
+ * ```tsx
+ * <ContextMenu
+ *   items={[
+ *     { icon: '📋', label: 'Copy', shortcut: 'Ctrl+C', onClick: handleCopy },
+ *     { icon: '🗑️', label: 'Delete', onClick: handleDelete, danger: true },
+ *   ]}
+ *   position={{ x: event.clientX, y: event.clientY }}
+ *   onClose={() => setMenuOpen(false)}
+ * />
+ * ```
  */
 export function ContextMenu({ items, position, onClose }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
