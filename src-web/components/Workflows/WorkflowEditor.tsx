@@ -16,12 +16,10 @@ export function WorkflowEditor({ workflow }: Props) {
     await patchModel(workflow.id, {
       updatedAt: Date.now(),
     });
-    console.log('Workflow saved:', workflow.id);
   }, [workflow.id]);
 
   const handleExecute = useCallback(async () => {
     // TODO: Trigger workflow execution
-    console.log('Execute workflow:', workflow.id);
   }, [workflow.id]);
 
   return (

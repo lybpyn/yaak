@@ -45,8 +45,6 @@ interface WorkflowCanvasInnerProps {
 function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   const { nodes: initialNodes, edges: initialEdges } = useWorkflowCanvas(workflow.id);
 
-  console.log('[WorkflowCanvas] Render - initialNodes:', initialNodes.length, initialNodes);
-
   const { createNode, deleteNode, updateNode } = useNodeOperations();
   const { createEdge, deleteEdge } = useEdgeOperations();
   const { undo, redo, canUndo, canRedo, recordAction } = useUndoRedo();
@@ -71,12 +69,10 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   // Sync initialNodes/initialEdges changes to ReactFlow state
   // This is needed because useNodesState/useEdgesState only use the initial value once
   useEffect(() => {
-    console.log('[WorkflowCanvas] Syncing initialNodes to ReactFlow state:', initialNodes);
     setNodes(initialNodes);
   }, [initialNodes, setNodes]);
 
   useEffect(() => {
-    console.log('[WorkflowCanvas] Syncing initialEdges to ReactFlow state:', initialEdges);
     setEdges(initialEdges);
   }, [initialEdges, setEdges]);
 
@@ -162,7 +158,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
       if (change.type === 'remove') {
         // Delete edge from database
         // This will be implemented when we have the delete edge command
-        console.log('TODO: Delete edge from database:', change.id);
       }
     });
   }, [onEdgesChange]);
@@ -250,7 +245,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         label: 'Copy',
         shortcut: 'Ctrl+C',
         onClick: () => {
-          console.log('Copy node:', node.id);
           // TODO: Implement copy to clipboard
         },
       },
@@ -267,7 +261,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         icon: '▶️',
         label: 'Execute',
         onClick: () => {
-          console.log('Execute node:', node.id);
           // TODO: Implement single node execution
         },
       },
@@ -299,7 +292,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         icon: '📜',
         label: 'History',
         onClick: () => {
-          console.log('View history:', node.id);
           // TODO: Implement execution history view
         },
       },
@@ -327,7 +319,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         label: 'Select Output Branch',
         shortcut: 'Ctrl+B',
         onClick: () => {
-          console.log('Select branch:', edge.id);
           // V2: Implement branch selector
         },
       },
@@ -335,7 +326,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         icon: '⚡',
         label: 'Add Conditional Jump',
         onClick: () => {
-          console.log('Add conditional:', edge.id);
           // V2: Implement condition editor
         },
       },
@@ -350,7 +340,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         label: 'Paste',
         shortcut: 'Ctrl+V',
         onClick: () => {
-          console.log('Paste nodes');
           // TODO: Implement paste from clipboard
         },
       },
@@ -358,7 +347,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         icon: '➕',
         label: 'Create Node',
         onClick: () => {
-          console.log('Create node at position');
           // TODO: Show node picker
         },
       },
@@ -389,7 +377,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         icon: '▶️',
         label: 'Run All',
         onClick: () => {
-          console.log('Run workflow');
           // TODO: Execute workflow
         },
       },
@@ -413,20 +400,14 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   const handleDrop = useCallback((event: React.DragEvent) => {
     event.preventDefault();
 
-    console.log('Drop event triggered');
-
     if (!reactFlowInstance) {
-      console.log('No reactFlowInstance available');
       return;
     }
 
     const nodeType = event.dataTransfer.getData('application/nodeType');
     const nodeSubtype = event.dataTransfer.getData('application/nodeSubtype');
 
-    console.log('Drop data:', { nodeType, nodeSubtype });
-
     if (!nodeType || !nodeSubtype) {
-      console.log('Missing node type or subtype');
       return;
     }
 
@@ -435,8 +416,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
       x: event.clientX,
       y: event.clientY,
     });
-
-    console.log('Creating node at position:', position);
 
     const nodeParams = {
       workflowId: workflow.id,
@@ -447,8 +426,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
 
     // Create node in database
     createNode(nodeParams).then((createdNode) => {
-      console.log('Node created successfully:', createdNode);
-
       // Record undo/redo action for node creation
       if (createdNode && createdNode.id) {
         recordAction({
@@ -465,7 +442,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
-    console.log('[DRAGOVER] event triggered');
   }, []);
 
   // Zoom handlers
@@ -822,7 +798,6 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
           onDragOver={handleDragOver}
           onDragEnter={(e) => {
             e.preventDefault();
-            console.log('[DRAGENTER] Canvas');
           }}
         >
       <ReactFlow
