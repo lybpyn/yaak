@@ -779,9 +779,9 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 15, Task 17
 - **Description**: Add smooth hover transitions to all buttons
 - **Acceptance Criteria**:
-  - [ ] Header buttons: bg-white/15 → bg-white/25
-  - [ ] Toolbar buttons: bg-transparent → bg-primary-light
-  - [ ] Transition: 200ms
+  - [x] Header buttons: bg-white/15 → bg-white/25
+  - [x] Toolbar buttons: bg-transparent → bg-primary-light
+  - [x] Transition: 200ms
   - [ ] Scale: 1 → 1.05 on hover (subtle)
 
 ### 8.2 Loading States
