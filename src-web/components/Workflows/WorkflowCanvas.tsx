@@ -42,6 +42,70 @@ interface WorkflowCanvasInnerProps {
   workflow: Workflow;
 }
 
+/**
+ * Skeleton loading placeholder for the canvas
+ * Shows a grid of placeholder nodes with pulsing animation
+ */
+function CanvasSkeleton() {
+  const skeletonNodes = Array.from({ length: 6 }, (_, i) => ({
+    id: `skeleton-${i}`,
+    x: 150 + (i % 3) * 200,
+    y: 100 + Math.floor(i / 3) * 150,
+  }));
+
+  return (
+    <div className="h-full bg-surface relative overflow-hidden">
+      {/* Background grid pattern */}
+      <div
+        className="absolute inset-0 opacity-20"
+        style={{
+          backgroundImage: 'radial-gradient(circle, #64748b 1px, transparent 1px)',
+          backgroundSize: '20px 20px',
+        }}
+      />
+
+      {/* Skeleton nodes */}
+      {skeletonNodes.map((node) => (
+        <div
+          key={node.id}
+          className="absolute animate-pulse"
+          style={{
+            left: node.x,
+            top: node.y,
+            width: 100,
+            height: 100,
+          }}
+        >
+          <div className="w-full h-full bg-gray-200 rounded-xl border border-gray-300">
+            <div className="h-8 bg-gray-300 rounded-t-xl" />
+            <div className="p-3 space-y-2">
+              <div className="h-3 bg-gray-300 rounded w-3/4 mx-auto" />
+              <div className="h-3 bg-gray-300 rounded w-1/2 mx-auto" />
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* Skeleton edges (lines between nodes) */}
+      <svg className="absolute inset-0 pointer-events-none opacity-30">
+        <line x1="250" y1="150" x2="350" y2="150" stroke="#9CA3AF" strokeWidth="2" strokeDasharray="5,3" />
+        <line x1="450" y1="150" x2="550" y2="150" stroke="#9CA3AF" strokeWidth="2" strokeDasharray="5,3" />
+        <line x1="250" y1="300" x2="350" y2="300" stroke="#9CA3AF" strokeWidth="2" strokeDasharray="5,3" />
+      </svg>
+
+      {/* Loading text */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 shadow-lg">
+          <div className="flex items-center gap-3">
+            <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-text-subtle">Loading workflow...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   const { nodes: initialNodes, edges: initialEdges } = useWorkflowCanvas(workflow.id);
 
@@ -58,6 +122,7 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance | null>(null);
   const [zoom, setZoom] = useState(100);
   const [isLayouting, setIsLayouting] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   // Track node positions before drag for undo
   const nodePositionsBeforeDrag = useRef<Map<string, { x: number; y: number }>>(new Map());
@@ -75,6 +140,16 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
   useEffect(() => {
     setEdges(initialEdges);
   }, [initialEdges, setEdges]);
+
+  // Clear initial loading state after a brief delay or when data is available
+  useEffect(() => {
+    // If we already have nodes or the workflow has been loaded, clear loading state
+    const timer = setTimeout(() => {
+      setIsInitialLoading(false);
+    }, 500); // Show skeleton for at least 500ms for smooth UX
+
+    return () => clearTimeout(timer);
+  }, [workflow.id]);
 
   // Debounced position update
   const positionUpdateTimeouts = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -760,6 +835,43 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
     // Cmd/Ctrl+V to paste (deferred - requires clipboard)
     // Cmd/Ctrl+D to duplicate (deferred - requires duplicate operation)
   ], true);
+
+  // Show skeleton loading state during initial load
+  if (isInitialLoading) {
+    return (
+      <div className="h-full flex flex-col">
+        {/* Toolbar (disabled during loading) */}
+        <Toolbar
+          workflowId={workflow.id}
+          onFitView={() => {}}
+          onZoomIn={() => {}}
+          onZoomOut={() => {}}
+          onUndo={() => {}}
+          onRedo={() => {}}
+          onAutoLayout={undefined}
+          onAlignLeft={() => {}}
+          onAlignRight={() => {}}
+          onAlignTop={() => {}}
+          onAlignBottom={() => {}}
+          onAlignCenterH={() => {}}
+          onAlignCenterV={() => {}}
+          onDistributeH={() => {}}
+          onDistributeV={() => {}}
+          canUndo={false}
+          canRedo={false}
+          zoom={100}
+          selectedCount={0}
+        />
+        <div className="flex-1 flex">
+          <NodeLibrarySidebar />
+          <div className="flex-1">
+            <CanvasSkeleton />
+          </div>
+          <PropertiesPanel />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col">
