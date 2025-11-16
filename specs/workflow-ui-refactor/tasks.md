@@ -669,14 +669,14 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 1, Task 13
 - **Description**: Build reusable context menu with keyboard support
 - **Acceptance Criteria**:
-  - [ ] Props: items (MenuItem[]), position ({x, y}), onClose
-  - [ ] Renders at absolute position
-  - [ ] Click outside closes menu
-  - [ ] Escape key closes menu
-  - [ ] Click item executes action and closes
-  - [ ] Items show icon, label, shortcut
-  - [ ] Disabled items have opacity-50, not clickable
-  - [ ] Danger items have text-danger
+  - [x] Props: items (MenuItem[]), position ({x, y}), onClose
+  - [x] Renders at absolute position
+  - [x] Click outside closes menu
+  - [x] Escape key closes menu
+  - [x] Click item executes action and closes
+  - [x] Items show icon, label, shortcut
+  - [x] Disabled items have opacity-50, not clickable
+  - [x] Danger items have text-danger
 
 #### Task 44: Create MenuItem Interface
 - **Files**: `src-web/components/Workflows/types.ts`
@@ -685,9 +685,9 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: None
 - **Description**: Define MenuItem type
 - **Acceptance Criteria**:
-  - [ ] Fields: icon, label, shortcut?, onClick, disabled?, danger?
-  - [ ] Exported from types.ts
-  - [ ] Used by ContextMenu component
+  - [x] Fields: icon, label, shortcut?, onClick, disabled?, danger?
+  - [x] Exported from types.ts
+  - [x] Used by ContextMenu component
 
 ### 7.2 Context Menu Hooks and Integration
 
@@ -753,11 +753,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 33
 - **Description**: Enhance hover effects with smooth transitions
 - **Acceptance Criteria**:
-  - [ ] Hover: -translateY(-5px) in 200ms
-  - [ ] Shadow: shadow-md → shadow-xl transition
-  - [ ] Border: transparent → primary (if not selected)
-  - [ ] Cursor: pointer
-  - [ ] Smooth transition-all
+  - [x] Hover: -translateY(-5px) in 200ms
+  - [x] Shadow: shadow-md → shadow-xl transition
+  - [x] Border: transparent → primary (if not selected)
+  - [x] Cursor: pointer
+  - [x] Smooth transition-all
 
 #### Task 49: Add Card Hover Effects
 - **Files**: `src-web/components/Workflows/NodeLibraryCard.tsx`
@@ -793,10 +793,10 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 29
 - **Description**: Show spinner during save
 - **Acceptance Criteria**:
-  - [ ] Save button shows spinner when saving
-  - [ ] Save button disabled during save
-  - [ ] Text changes: "Save" → "Saving..."
-  - [ ] Success feedback: Brief "Saved!" message (2s)
+  - [x] Save button shows spinner when saving
+  - [x] Save button disabled during save
+  - [x] Text changes: "Save" → "Saving..."
+  - [x] Success feedback: Brief "Saved!" message (2s)
 
 #### Task 52: Add Loading State to Auto-Layout
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -831,11 +831,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: None
 - **Description**: Improve empty state message and styling
 - **Acceptance Criteria**:
-  - [ ] Large icon (emoji or SVG)
-  - [ ] Headline: "Create your workflow"
-  - [ ] Instructions: "Drag nodes from the library..."
-  - [ ] Centered in canvas
-  - [ ] Friendly, approachable tone
+  - [x] Large icon (emoji or SVG)
+  - [x] Headline: "Create your workflow"
+  - [x] Instructions: "Drag nodes from the library..."
+  - [x] Centered in canvas
+  - [x] Friendly, approachable tone
 
 #### Task 55: Enhance Properties Panel Empty State
 - **Files**: `src-web/components/Workflows/PropertiesPanel.tsx`
@@ -844,11 +844,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 29
 - **Description**: Improve empty state when no node selected
 - **Acceptance Criteria**:
-  - [ ] Icon: 📝 or similar
-  - [ ] Headline: "No Node Selected"
-  - [ ] Message: "Select a node to configure..."
-  - [ ] Centered vertically and horizontally
-  - [ ] Subtle text color
+  - [x] Icon: 📝 or similar
+  - [x] Headline: "No Node Selected"
+  - [x] Message: "Select a node to configure..."
+  - [x] Centered vertically and horizontally
+  - [x] Subtle text color
 
 ---
 

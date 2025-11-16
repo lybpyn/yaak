@@ -10,6 +10,7 @@ import { NumberField } from './FormFields/NumberField';
 import { CheckboxField } from './FormFields/CheckboxField';
 import { CodeField } from './FormFields/CodeField';
 import { validateNodeConfig, type ValidationError } from '../../lib/workflow-validation';
+import { Loader, Check } from 'lucide-react';
 
 export function PropertiesPanel() {
   const selectedNodeId = useAtomValue(selectedNodeIdAtom);
@@ -19,6 +20,8 @@ export function PropertiesPanel() {
   const [config, setConfig] = useState<Record<string, any>>({});
   const [hasChanges, setHasChanges] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (selectedNode) {
@@ -50,12 +53,20 @@ export function PropertiesPanel() {
       return; // Don't save if validation fails
     }
 
-    await patchModel(selectedNodeId, {
-      name,
-      description: description || null,
-      config,
-    });
-    setHasChanges(false);
+    setIsSaving(true);
+    try {
+      await patchModel(selectedNodeId, {
+        name,
+        description: description || null,
+        config,
+      });
+      setHasChanges(false);
+      setSaveSuccess(true);
+      // Clear success message after 2 seconds
+      setTimeout(() => setSaveSuccess(false), 2000);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateConfig = (key: string, value: any) => {
@@ -385,10 +396,16 @@ export function PropertiesPanel() {
       </div>
 
       {/* Footer */}
-      {hasChanges && (
+      {(hasChanges || saveSuccess) && (
         <div className="p-4 border-t border-border">
-          <Button onClick={handleSave} className="w-full">
-            Save Changes
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || saveSuccess}
+            className="w-full flex items-center justify-center gap-2"
+          >
+            {isSaving && <Loader className="w-4 h-4 animate-spin" />}
+            {saveSuccess && <Check className="w-4 h-4" />}
+            {isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Changes'}
           </Button>
         </div>
       )}
