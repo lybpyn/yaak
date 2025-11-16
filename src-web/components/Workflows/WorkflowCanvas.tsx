@@ -795,7 +795,7 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
         onZoomOut={handleZoomOut}
         onUndo={undo}
         onRedo={redo}
-        onAutoLayout={handleAutoLayout}
+        onAutoLayout={isLayouting ? undefined : handleAutoLayout}
         onAlignLeft={() => handleAlign('left')}
         onAlignRight={() => handleAlign('right')}
         onAlignTop={() => handleAlign('top')}

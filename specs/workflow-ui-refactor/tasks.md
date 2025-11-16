@@ -805,10 +805,10 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 40
 - **Description**: Show feedback during layout calculation
 - **Acceptance Criteria**:
-  - [ ] Auto-layout button shows spinner when running
-  - [ ] Button disabled during layout
-  - [ ] Toast notification: "Organizing workflow..." → "Layout complete!"
-  - [ ] Nodes animate to new positions smoothly
+  - [x] Auto-layout button shows spinner when running
+  - [x] Button disabled during layout
+  - [x] Toast notification: "Organizing workflow..." → "Layout complete!"
+  - [x] Nodes animate to new positions smoothly
 
 #### Task 53: Add Skeleton Loading for Canvas
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -863,11 +863,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 15
 - **Description**: Add Header component to editor layout
 - **Acceptance Criteria**:
-  - [ ] Header at top of editor
-  - [ ] Receives workflow prop
-  - [ ] Save/Execute callbacks wired to existing functions
-  - [ ] Breadcrumbs navigate correctly
-  - [ ] User menu functional (if applicable)
+  - [x] Header at top of editor
+  - [x] Receives workflow prop
+  - [x] Save/Execute callbacks wired to existing functions
+  - [x] Breadcrumbs navigate correctly
+  - [x] User menu functional (if applicable)
 
 #### Task 57: Integrate Toolbar into WorkflowCanvas
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -880,7 +880,7 @@ This document provides a comprehensive, ordered task list for implementing the W
   - [x] All buttons wired to hooks
   - [x] Disabled states reflect hook state (canUndo, canRedo)
   - [x] Zoom display updates on canvas zoom
-  - [ ] Selection count updates on selection change
+  - [x] Selection count updates on selection change
 
 #### Task 58: Wire All Context Menus
 - **Files**: `src-web/components/Workflows/WorkflowCanvas.tsx`
@@ -889,11 +889,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 45-47
 - **Description**: Ensure all context menus work together
 - **Acceptance Criteria**:
-  - [ ] Right-click node, edge, canvas shows correct menu
-  - [ ] Only one menu open at a time
-  - [ ] All menu actions execute correctly
-  - [ ] Menus close on click outside, Escape, action
-  - [ ] Menu positioning handles edge of screen
+  - [x] Right-click node, edge, canvas shows correct menu
+  - [x] Only one menu open at a time
+  - [x] All menu actions execute correctly
+  - [x] Menus close on click outside, Escape, action
+  - [x] Menu positioning handles edge of screen
 
 #### Task 59: Test Multi-Select with All Features
 - **Files**: N/A (integration testing)

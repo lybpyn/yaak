@@ -1,5 +1,6 @@
 import type { Workflow } from '@yaakapp-internal/models';
-import { useWorkspace } from '../../hooks/useWorkspaces';
+import { useAtomValue } from 'jotai';
+import { workspacesAtom } from '@yaakapp-internal/models';
 import { Breadcrumbs, type BreadcrumbItem } from './Breadcrumbs';
 
 interface HeaderProps {
@@ -17,7 +18,8 @@ export function Header({
   onExport,
   onNew,
 }: HeaderProps) {
-  const workspace = useWorkspace(workflow.workspaceId);
+  const workspaces = useAtomValue(workspacesAtom);
+  const workspace = workspaces.find((w) => w.id === workflow.workspaceId);
 
   const breadcrumbItems: BreadcrumbItem[] = [
     ...(workspace
