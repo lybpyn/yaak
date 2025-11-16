@@ -646,15 +646,15 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 14, Task 6, Task 8, Task 10
 - **Description**: Wire all keyboard shortcuts
 - **Acceptance Criteria**:
-  - [ ] Delete/Backspace: Delete selected nodes
-  - [ ] Escape: Clear selection
-  - [ ] Ctrl+Z: Undo
-  - [ ] Ctrl+Shift+Z: Redo
-  - [ ] Ctrl+0: Reset zoom
+  - [x] Delete/Backspace: Delete selected nodes
+  - [x] Escape: Clear selection
+  - [x] Ctrl+Z: Undo
+  - [x] Ctrl+Shift+Z: Redo
+  - [x] Ctrl+0: Reset zoom
   - [ ] Ctrl+A: Select all
-  - [ ] F: Fit view
+  - [x] F: Fit view
   - [ ] Ctrl+L: Auto-layout
-  - [ ] All shortcuts prevent default browser behavior
+  - [x] All shortcuts prevent default browser behavior
 
 ---
 
@@ -766,11 +766,11 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 21
 - **Description**: Enhance node card hover
 - **Acceptance Criteria**:
-  - [ ] Hover: -translateY(-3px)
-  - [ ] Shadow: shadow → shadow-lg
-  - [ ] Border: border → border-primary
-  - [ ] Transition: 200ms ease-out
-  - [ ] Active (drag): cursor-grabbing
+  - [x] Hover: -translateY(-3px)
+  - [x] Shadow: shadow → shadow-lg
+  - [x] Border: border → border-primary
+  - [x] Transition: 200ms ease-out
+  - [x] Active (drag): cursor-grabbing
 
 #### Task 50: Add Button Hover States
 - **Files**: `src-web/components/Workflows/Header.tsx`, `src-web/components/Workflows/Toolbar.tsx`
@@ -876,10 +876,10 @@ This document provides a comprehensive, ordered task list for implementing the W
 - **Dependencies**: Task 17, Task 38-42
 - **Description**: Add Toolbar to canvas layout
 - **Acceptance Criteria**:
-  - [ ] Toolbar below Header (or at top of canvas section)
-  - [ ] All buttons wired to hooks
-  - [ ] Disabled states reflect hook state (canUndo, canRedo)
-  - [ ] Zoom display updates on canvas zoom
+  - [x] Toolbar below Header (or at top of canvas section)
+  - [x] All buttons wired to hooks
+  - [x] Disabled states reflect hook state (canUndo, canRedo)
+  - [x] Zoom display updates on canvas zoom
   - [ ] Selection count updates on selection change
 
 #### Task 58: Wire All Context Menus

@@ -285,6 +285,14 @@ function WorkflowCanvasInner({ workflow }: WorkflowCanvasInnerProps) {
       },
       description: 'Redo last undone action',
     },
+    // F to fit view
+    {
+      key: 'f',
+      handler: () => {
+        handleFitView();
+      },
+      description: 'Fit view to all nodes',
+    },
     // Cmd/Ctrl+A to select all (deferred - requires multi-select)
     // Cmd/Ctrl+C to copy (deferred - requires clipboard)
     // Cmd/Ctrl+V to paste (deferred - requires clipboard)
